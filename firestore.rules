@@ -53,6 +53,11 @@ service cloud.firestore {
       allow create, delete: if sup();
       allow update: if sup() || (authed() && rk(mem(c), 'x') == 2 && body() && request.resource.data.nom is string);
 
+      // options du club réglées par l'administrateur général seul (ex. bg : variante Bad'Galette du SmashRoulette)
+      match /sys/{d} {
+        allow read: if sup() || (authed() && exists(/databases/$(database)/documents/clubs/$(c)/members/$(me())));
+        allow write: if sup();
+      }
       match /members/{email} {
         allow read: if sup() || (authed() && (email == me() || rk(mem(c), 'x') >= 1));
         allow write: if sup();

@@ -1,0 +1,87 @@
+rules_version = '2';
+// Club Manager : règles de sécurité de la base (à coller dans Firestore > Règles, puis « Publier »).
+// Chaque club a ses données à part (clubs/<club>/...). On n'y accède que si l'administrateur général
+// nous a invité (clubs/<club>/members/<e-mail>), avec des droits par rubrique : 0 rien, 1 voir, 2 modifier
+// (c challenge, s SmashRoulette, t tournoi, v Choc des volants — 3 = capitaine d'un club —, a amicales, j joueurs, x admin du club).
+// L'administrateur général est déclaré à la main dans la console : admins/<e-mail> (personne ne peut l'écrire depuis l'appli).
+// Tout ce qui n'est pas autorisé ci-dessous est refusé.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function authed() { return request.auth != null && request.auth.token.email_verified == true && request.auth.token.email is string; }
+    function me() { return request.auth.token.email.lower(); }
+    function sup() { return authed() && exists(/databases/$(database)/documents/admins/$(me())); }
+    // fiche du membre connecté dans le club c (erreur, donc refus, s'il n'est pas invité)
+    function mem(c) { return get(/databases/$(database)/documents/clubs/$(c)/members/$(me())).data; }
+    function rk(m, k) { return m.get('r', {}).get(k, 0); }
+    // contenu enregistré par l'appli : le JSON (j), qui l'a écrit, quand, et quelques champs que les règles vérifient
+    function body() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['j', 'by', 'at', 'nom', 'a', 'b', 'host', 'cid', 'bc'])
+        && d.j is string && d.j.size() < 900000 && d.by == me() && d.at is int;
+    }
+    // rubrique d'un document de données
+    function part(d) { return d == 'sr' ? 's' : d == 'tn' ? 't' : d == 'jmeta' ? 'j' : 'c'; }
+    function dataId(d) { return d in ['chmeta', 'chhist', 'sr', 'tn', 'jmeta'] || d.matches('ch_[A-Z]{2}'); }
+    // fiches joueurs : utiles à toutes les rubriques
+    function plRead(m) { return rk(m, 'c') >= 1 || rk(m, 's') >= 1 || rk(m, 't') >= 1 || rk(m, 'j') >= 1 || rk(m, 'a') >= 1 || rk(m, 'v') == 1 || rk(m, 'v') == 2; }
+    function plEdit(m) { return rk(m, 'c') == 2 || rk(m, 's') == 2 || rk(m, 't') == 2 || rk(m, 'j') == 2 || rk(m, 'v') == 2; }
+    // Choc des volants : un capitaine (v = 3) ne touche qu'à ce qui concerne son club
+    function capOk(m, d) {
+      let c = m.get('cap', -1);
+      let n = request.resource.data;
+      let o = resource == null ? null : resource.data;
+      return rk(m, 'v') == 3 && c is int && c >= 0 && (
+        (d == 'club_' + string(c) && n.cid == c && (o == null || o.cid == c))
+        || (d.matches('av_[0-9]+_' + string(c)) && n.cid == c && (o == null || o.cid == c))
+        || (d.matches('jri_[0-9]+') && n.host == c && (o == null || o.host == c))
+        || (d.matches('rc_[0-9]+') && o != null && (o.a == c || o.b == c || o.host == c)
+            && n.a == o.a && n.b == o.b && n.host == o.host && n.bc == c)
+      );
+    }
+    function chocW(m, d) { return rk(m, 'v') == 2 || capOk(m, d); }
+
+    match /admins/{email} {
+      allow read: if authed() && email == me();
+      allow write: if false;
+    }
+    match /memberships/{email} {
+      allow read: if authed() && (email == me() || sup());
+      allow write: if sup();
+    }
+    match /clubs/{c} {
+      allow read: if sup() || (authed() && exists(/databases/$(database)/documents/clubs/$(c)/members/$(me())));
+      allow create, delete: if sup();
+      allow update: if sup() || (authed() && rk(mem(c), 'x') == 2 && body() && request.resource.data.nom is string);
+
+      match /members/{email} {
+        allow read: if sup() || (authed() && (email == me() || rk(mem(c), 'x') >= 1));
+        allow write: if sup();
+      }
+      match /data/{d} {
+        allow read: if sup() || (authed() && rk(mem(c), part(d)) >= 1);
+        allow create, update: if dataId(d) && body() && (sup() || (authed() && rk(mem(c), part(d)) == 2));
+        allow delete: if sup() || (authed() && rk(mem(c), part(d)) == 2);
+      }
+      match /players/{p} {
+        allow read: if sup() || (authed() && plRead(mem(c)));
+        allow create, update: if body() && (sup() || (authed() && plEdit(mem(c))));
+        allow delete: if sup() || (authed() && plEdit(mem(c)));
+      }
+      match /srh/{k} {
+        allow read: if sup() || (authed() && rk(mem(c), 's') >= 1);
+        allow create, update: if body() && (sup() || (authed() && rk(mem(c), 's') == 2));
+        allow delete: if sup() || (authed() && rk(mem(c), 's') == 2);
+      }
+      match /tna/{k} {
+        allow read: if sup() || (authed() && rk(mem(c), 't') >= 1);
+        allow create, update: if body() && (sup() || (authed() && rk(mem(c), 't') == 2));
+        allow delete: if sup() || (authed() && rk(mem(c), 't') == 2);
+      }
+      match /choc/{d} {
+        allow read: if sup() || (authed() && rk(mem(c), 'v') >= 1);
+        allow delete: if sup() || (authed() && rk(mem(c), 'v') == 2);
+        allow create, update: if body() && (sup() || (authed() && chocW(mem(c), d)));
+      }
+    }
+  }
+}

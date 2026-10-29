@@ -484,7 +484,7 @@ const save=()=>{if(CLOUD){if(typeof cwPush=='function')cwPush();return}try{local
    Documents (contenu en JSON dans le champ j) : clubs/<club> (réglages), data/{chmeta,chhist,ch_XX,sr,tn,jmeta}, players/<id>, srh/<soirée>, tna/<tournoi>,
    choc/{cfg,club_<id>,jri_<id>,rc_<id>,av_<j>_<c>,arch_<saison>} (avec les champs a, b, host, cid que les règles vérifient pour les capitaines).
    Tout ce qui arrive du serveur passe par cwSan (pas de balises, identifiants numériques) : un membre ne peut pas glisser du code dans la page d'un autre. */
-let CWB=null,CWU=null,CWSUP=false,CWM=null,CWID=null,CWLIST={},CWST='init',CWERR='',CWC={},CWJ={},CWBASE={},CWGOT={},CWFRESH={},CWNEED=[],CWUNS=[],CWDEF=0,CWMEMS=null,CWMODE='in',CWEM='',CWPICK=[],CWSYN=new Set,CWQT=0,CWVERR='';
+let CWB=null,CWU=null,CWSUP=false,CWM=null,CWID=null,CWLIST={},CWST='init',CWERR='',CWC={},CWJ={},CWBASE={},CWGOT={},CWFRESH={},CWNEED=[],CWUNS=[],CWDEF=0,CWMEMS=null,CWMODE='in',CWEM='',CWPICK=[],CWSYN=new Set,CWQT=0,CWVERR='',CWDIAG='';
 const CWRK=[['c','Challenge'],['s','SmashRoulette'],['t','Tournoi'],['v','Choc'],['a','Amicales'],['j','Joueurs'],['x','Admin']];
 const CWLOCAL=['tab','cc','cv','srv','tv','vv','pf','srk','srs','srcl','tncl','rg','lastSave'];
 const cwLS=(k,v)=>{try{if(v===undefined)return localStorage.getItem(k);if(v===null)localStorage.removeItem(k);else localStorage.setItem(k,v)}catch(e){return null}};
@@ -603,8 +603,9 @@ async function cwInit(){if(!CLOUD)return;CWST='init';R();
 async function cwUser(u){cwStop();CWU=null;CWM=null;CWID=null;CWSUP=false;CWLIST={};DLG=null;
  if(!u){CWST='out';return R()}CWU={email:String(u.email||'').toLowerCase(),verified:!!u.verified};CWEM=CWU.email;
  if(!CWU.verified){CWST='verify';return R()}CWST='init';CWERR='';R();
- try{CWSUP=!!(await CWB.get('admins/'+CWU.email)).exists}catch(e){CWSUP=false}
- let L={};try{const m=await CWB.get('memberships/'+CWU.email);if(m.exists)L=Object.assign({},(m.data()||{}).clubs||{})}catch(e){}
+ const ec=e=>(e&&(e.code||e.message))||String(e);CWDIAG='';
+ try{CWSUP=!!(await CWB.get('admins/'+CWU.email)).exists}catch(e){CWSUP=false;CWDIAG+='admins : '+ec(e)+' · '}
+ let L={};try{const m=await CWB.get('memberships/'+CWU.email);if(m.exists)L=Object.assign({},(m.data()||{}).clubs||{})}catch(e){CWDIAG+='clubs : '+ec(e)}
  if(CWSUP){try{(await CWB.list('clubs')).forEach(d=>{L[d.id]=(d.data()||{}).nom||d.id})}catch(e){}}
  Object.keys(L).forEach(k=>{L[k]=cwStr(L[k]||k)});CWLIST=L;const ids=Object.keys(L);if(!ids.length){CWST=CWSUP?'first':'noclub';return R()}
  const last=cwLS('cm-club-'+CWU.email);cwOpen(ids.includes(last)?last:ids[0])}
@@ -629,7 +630,7 @@ function cwGate(){const box=(t,b)=>`<div class="cwg"><div class="card"><h2>${t}<
  if(CWST=='init'||CWST=='load')return box('Club Manager','<p class="m" role="status">Chargement…</p>');
  if(CWST=='err')return box('Club Manager',`<p class="bad">${esc(CWERR)}</p><div class="row"><button class="btn" onclick="location.reload()">Recharger</button></div>`);
  if(CWST=='verify')return box('Vérifie ton adresse',`<p>${CWVERR?`Ton accès est créé pour <b>${esc(CWU.email)}</b>. Il reste à vérifier l'adresse : clique sur le lien de l'e-mail de vérification, puis reviens ici.`:`Un e-mail de vérification a été envoyé à <b>${esc(CWU.email)}</b>. Clique sur le lien qu'il contient, puis reviens ici.`}</p><p class="m">Pas reçu ? Regarde dans les courriers indésirables, puis « Renvoyer l'e-mail ».</p>${CWVERR?`<p class="bad" role="alert">${esc(CWVERR)}</p>`:''}<div class="row"><button class="btn pri" onclick="cwVerified()">J'ai cliqué sur le lien</button><button class="btn" onclick="cwResend()">Renvoyer l'e-mail</button><button class="btn ghost" onclick="cwOut()">Se déconnecter</button></div>`);
- if(CWST=='noclub')return box('Pas encore d\'accès',`<p>Tu es connecté avec <b>${esc(CWU.email)}</b>, mais cette adresse n'a accès à aucun club pour le moment.</p><p class="m">Donne cette adresse à l'administrateur de ton club. Dès qu'il t'aura invité, recharge la page.</p><div class="row"><button class="btn" onclick="location.reload()">Recharger</button><button class="btn ghost" onclick="cwOut()">Se déconnecter</button></div>`);
+ if(CWST=='noclub')return box('Pas encore d\'accès',`<p>Tu es connecté avec <b>${esc(CWU.email)}</b>, mais cette adresse n'a accès à aucun club pour le moment.</p><p class="m">Donne cette adresse à l'administrateur de ton club. Dès qu'il t'aura invité, recharge la page.</p>${CWDIAG?`<p class="m">Détail technique : ${esc(CWDIAG)}</p>`:''}<div class="row"><button class="btn" onclick="location.reload()">Recharger</button><button class="btn ghost" onclick="cwOut()">Se déconnecter</button></div>`);
  if(CWST=='first')return box('Bienvenue',`<p>Tu es l'administrateur général. Crée le premier club : tu pourras ensuite y importer ta sauvegarde et inviter les membres.</p><div class="row"><input id="cwcn" placeholder="Nom du club, ex. USJM Badminton" aria-label="Nom du club" style="flex:1 1 220px" onkeydown="if(event.key=='Enter')cwClubNew()"><button class="btn pri" onclick="cwClubNew()">Créer le club</button></div><div class="row"><button class="btn ghost" onclick="cwOut()">Se déconnecter</button></div>`);
  const m=CWMODE;return box(m=='new'?'Créer mon accès':m=='reset'?'Mot de passe oublié':'Connexion',`${m=='reset'?'':`<div class="cats">${[['in','Se connecter'],['new','Créer mon accès']].map(([k,t])=>`<button class="cat${m==k?' on':''}" onclick="CWMODE='${k}';CWERR='';R()">${t}</button>`).join('')}</div>`}
   <label class="cwf">E-mail<input id="cwe" type="email" autocomplete="username" inputmode="email" value="${esc(CWEM)}" onkeydown="if(event.key=='Enter')cwGo()"></label>

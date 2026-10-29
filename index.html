@@ -484,7 +484,7 @@ const save=()=>{if(CLOUD){if(typeof cwPush=='function')cwPush();return}try{local
    Documents (contenu en JSON dans le champ j) : clubs/<club> (réglages), data/{chmeta,chhist,ch_XX,sr,tn,jmeta}, players/<id>, srh/<soirée>, tna/<tournoi>,
    choc/{cfg,club_<id>,jri_<id>,rc_<id>,av_<j>_<c>,arch_<saison>} (avec les champs a, b, host, cid que les règles vérifient pour les capitaines).
    Tout ce qui arrive du serveur passe par cwSan (pas de balises, identifiants numériques) : un membre ne peut pas glisser du code dans la page d'un autre. */
-let CWB=null,CWU=null,CWSUP=false,CWM=null,CWID=null,CWLIST={},CWST='init',CWERR='',CWC={},CWJ={},CWBASE={},CWGOT={},CWFRESH={},CWNEED=[],CWUNS=[],CWDEF=0,CWMEMS=null,CWMODE='in',CWEM='',CWPICK=[],CWSYN=new Set,CWQT=0;
+let CWB=null,CWU=null,CWSUP=false,CWM=null,CWID=null,CWLIST={},CWST='init',CWERR='',CWC={},CWJ={},CWBASE={},CWGOT={},CWFRESH={},CWNEED=[],CWUNS=[],CWDEF=0,CWMEMS=null,CWMODE='in',CWEM='',CWPICK=[],CWSYN=new Set,CWQT=0,CWVERR='';
 const CWRK=[['c','Challenge'],['s','SmashRoulette'],['t','Tournoi'],['v','Choc'],['a','Amicales'],['j','Joueurs'],['x','Admin']];
 const CWLOCAL=['tab','cc','cv','srv','tv','vv','pf','srk','srs','srcl','tncl','rg','lastSave'];
 const cwLS=(k,v)=>{try{if(v===undefined)return localStorage.getItem(k);if(v===null)localStorage.removeItem(k);else localStorage.setItem(k,v)}catch(e){return null}};
@@ -615,10 +615,10 @@ const cwAuthErr=e=>{const c=(e&&e.code)||'';return{'auth/invalid-email':'Adresse
 async function cwGo(){const e=(($('cwe')||{}).value||'').trim().toLowerCase(),p=($('cwp')||{}).value||'',p2=($('cwp2')||{}).value||'';CWEM=e;CWERR='';
  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)){CWERR='Adresse e-mail incorrecte.';return R()}
  try{if(CWMODE=='reset'){await CWB.reset(e);CWMODE='in';R();return msg('Si un accès existe pour '+e+', un lien est parti : choisis un nouveau mot de passe, puis connecte-toi.')}
-  if(CWMODE=='new'){if(p.length<10){CWERR='Le mot de passe doit faire au moins 10 caractères.';return R()}if(p!==p2){CWERR='Les deux mots de passe ne sont pas identiques.';return R()}CWST='init';R();await CWB.signUp(e,p);return}
-  if(!p){CWERR='Tape ton mot de passe.';return R()}CWST='init';R();await CWB.signIn(e,p)}catch(x){CWST='out';CWERR=cwAuthErr(x);R()}}
+  if(CWMODE=='new'){if(p.length<10){CWERR='Le mot de passe doit faire au moins 10 caractères.';return R()}if(p!==p2){CWERR='Les deux mots de passe ne sont pas identiques.';return R()}CWST='init';R();const r=await CWB.signUp(e,p);if(r&&r.sent===false){CWVERR='L\'accès est créé, mais l\'e-mail de vérification n\'est pas parti : '+cwAuthErr({code:r.code})+' Réessaie avec « Renvoyer l\'e-mail ».';R()}return}
+  if(!p){CWERR='Tape ton mot de passe.';return R()}CWST='init';R();await CWB.signIn(e,p)}catch(x){if(CWU)return msg(cwAuthErr(x));CWST='out';CWERR=cwAuthErr(x);R()}}
 async function cwVerified(){try{const u=await CWB.refresh();if(u&&u.verified)return cwUser(u);msg('Adresse pas encore vérifiée : clique sur le lien reçu par e-mail.')}catch(e){msg(cwAuthErr(e))}}
-async function cwResend(){try{await CWB.resend();msg('E-mail de vérification renvoyé à '+CWU.email+'.')}catch(e){msg(cwAuthErr(e))}}
+async function cwResend(){try{await CWB.resend();CWVERR='';R();msg('E-mail de vérification renvoyé à '+CWU.email+'.')}catch(e){CWVERR=cwAuthErr(e);R()}}
 async function cwOut(){cwStop();try{await CWB.signOut()}catch(e){}CWU=null;S={tab:'c'};try{location.reload()}catch(e){CWST='out';R()}}
 /* écran avant d'entrer dans l'appli */
 function cwGateR(){try{document.documentElement.classList.add('cwgate')}catch(e){}const n=$('tabsin');if(n)n.innerHTML='';const b=$('bnav');if(b)b.innerHTML='';
@@ -628,7 +628,7 @@ function cwHdr(){try{document.documentElement.classList.remove('cwgate')}catch(e
 function cwGate(){const box=(t,b)=>`<div class="cwg"><div class="card"><h2>${t}</h2>${b}</div></div>`;
  if(CWST=='init'||CWST=='load')return box('Club Manager','<p class="m" role="status">Chargement…</p>');
  if(CWST=='err')return box('Club Manager',`<p class="bad">${esc(CWERR)}</p><div class="row"><button class="btn" onclick="location.reload()">Recharger</button></div>`);
- if(CWST=='verify')return box('Vérifie ton adresse',`<p>Un e-mail de vérification a été envoyé à <b>${esc(CWU.email)}</b>. Clique sur le lien qu'il contient, puis reviens ici.</p><p class="m">Pas reçu ? Regarde dans les courriers indésirables.</p><div class="row"><button class="btn pri" onclick="cwVerified()">J'ai cliqué sur le lien</button><button class="btn" onclick="cwResend()">Renvoyer l'e-mail</button><button class="btn ghost" onclick="cwOut()">Se déconnecter</button></div>`);
+ if(CWST=='verify')return box('Vérifie ton adresse',`<p>${CWVERR?`Ton accès est créé pour <b>${esc(CWU.email)}</b>. Il reste à vérifier l'adresse : clique sur le lien de l'e-mail de vérification, puis reviens ici.`:`Un e-mail de vérification a été envoyé à <b>${esc(CWU.email)}</b>. Clique sur le lien qu'il contient, puis reviens ici.`}</p><p class="m">Pas reçu ? Regarde dans les courriers indésirables, puis « Renvoyer l'e-mail ».</p>${CWVERR?`<p class="bad" role="alert">${esc(CWVERR)}</p>`:''}<div class="row"><button class="btn pri" onclick="cwVerified()">J'ai cliqué sur le lien</button><button class="btn" onclick="cwResend()">Renvoyer l'e-mail</button><button class="btn ghost" onclick="cwOut()">Se déconnecter</button></div>`);
  if(CWST=='noclub')return box('Pas encore d\'accès',`<p>Tu es connecté avec <b>${esc(CWU.email)}</b>, mais cette adresse n'a accès à aucun club pour le moment.</p><p class="m">Donne cette adresse à l'administrateur de ton club. Dès qu'il t'aura invité, recharge la page.</p><div class="row"><button class="btn" onclick="location.reload()">Recharger</button><button class="btn ghost" onclick="cwOut()">Se déconnecter</button></div>`);
  if(CWST=='first')return box('Bienvenue',`<p>Tu es l'administrateur général. Crée le premier club : tu pourras ensuite y importer ta sauvegarde et inviter les membres.</p><div class="row"><input id="cwcn" placeholder="Nom du club, ex. USJM Badminton" aria-label="Nom du club" style="flex:1 1 220px" onkeydown="if(event.key=='Enter')cwClubNew()"><button class="btn pri" onclick="cwClubNew()">Créer le club</button></div><div class="row"><button class="btn ghost" onclick="cwOut()">Se déconnecter</button></div>`);
  const m=CWMODE;return box(m=='new'?'Créer mon accès':m=='reset'?'Mot de passe oublié':'Connexion',`${m=='reset'?'':`<div class="cats">${[['in','Se connecter'],['new','Créer mon accès']].map(([k,t])=>`<button class="cat${m==k?' on':''}" onclick="CWMODE='${k}';CWERR='';R()">${t}</button>`).join('')}</div>`}
@@ -678,7 +678,7 @@ async function cwFirebase(cfg){const B='https://www.gstatic.com/firebasejs/10.12
   /* le lien de retour vers le site demande que le domaine soit autorisé dans Firebase : sinon, l'e-mail part sans lui */
   withUrl=async f=>{try{return await f({url:location.origin+location.pathname})}catch(e){if(/continue-uri|unauthorized-domain/.test(e&&e.code||''))return f(undefined);throw e}};
  return{onUser:f=>AU.onAuthStateChanged(auth,u=>f(uo(u))),
-  signUp:async(e,p)=>{const c=await AU.createUserWithEmailAndPassword(auth,e,p);await withUrl(s=>AU.sendEmailVerification(c.user,s))},
+  signUp:async(e,p)=>{const c=await AU.createUserWithEmailAndPassword(auth,e,p);try{await withUrl(s=>AU.sendEmailVerification(c.user,s));return{sent:true}}catch(x){return{sent:false,code:x&&x.code}}},
   signIn:(e,p)=>AU.signInWithEmailAndPassword(auth,e,p),
   refresh:async()=>{const u=auth.currentUser;if(!u)return null;await u.reload();await u.getIdToken(true);return uo(auth.currentUser)},
   resend:()=>withUrl(s=>AU.sendEmailVerification(auth.currentUser,s)),

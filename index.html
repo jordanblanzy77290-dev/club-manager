@@ -194,6 +194,7 @@ td{padding:8px;border-bottom:1px solid var(--line);vertical-align:middle}
 @keyframes ltin{from{transform:scale(.93);opacity:.35}to{transform:none;opacity:1}}
 @media (prefers-reduced-motion:reduce){.ltp{transition:none;animation:none!important}}
 .ltr{position:sticky;bottom:10px;z-index:6;border:1px solid var(--line);border-left:4px solid var(--ok);background:var(--surface);box-shadow:0 6px 24px rgba(20,10,12,.16);border-radius:var(--rad);padding:10px 12px;display:flex;flex-direction:column;gap:5px}
+.ltr.ngp{position:static;box-shadow:none}
 .ltr p{font-size:14px}.ltr .row{margin-top:4px}
 .mx.wa{right:38px;font-size:13px}
 .mx.wa.sent{border-color:var(--ok)}
@@ -965,6 +966,11 @@ function reclass(c,g,pp){if(g.rd||!g.m.length||!g.m.every(m=>m.done)||(!pp&&c.g.
    Un joueur seul au dernier niveau rejoint la poule précédente (si cela fait 8, c'est un arbre). */
 const p2Lv=(P,rk)=>{const ng=P.length,w=ng==3?1:Math.max(1,Math.floor(8/ng)),tr=8%ng==0,L=[];/* 3 groupes (Dan, 23/10/2026) : les 1ers ensemble, les 2es… jusqu'aux 8es, en triangulaires */
  for(let a=0;a<8;a+=w){const ids=[];for(let k=a;k<a+w;k++)ids.push(...P.map(x=>x[k]).filter(i=>i!=null).sort((x,y)=>rk(x)-rk(y)));if(ids.length)L.push({ids,rr:!tr})}
+ /* 3 groupes de tailles différentes (groupe ajouté au Tour 1, Dan, 06/11/2026) : les places où il n'y a plus 3 joueurs (6es, 7es, 8es de A et B quand C en a 5)
+    sont regroupées dans un arbre de 8 places (byes s'il en manque), plusieurs si elles sont plus de 8 ; 3 joueurs : triangulaire ; 2 : un match ; 1 : rejoint la triangulaire d'avant */
+ if(ng==3){let i=L.length;while(i>0&&L[i-1].ids.length<3)i--;const T=L.splice(i),tot=T.reduce((a,x)=>a+x.ids.length,0);
+  if(tot>=4){let cur=[];T.forEach(x=>{if(cur.length+x.ids.length>8){L.push({ids:cur,rr:false});cur=[]}cur.push(...x.ids)});if(cur.length)L.push({ids:cur,rr:false})}else if(tot)L.push({ids:T.flatMap(x=>x.ids),rr:true})}
+ if(!tr)for(let i=0;i<L.length-1;i++)if(L[i].ids.length==1){L[i+1].ids=[...L[i].ids,...L[i+1].ids];L.splice(i,1);i--}/* groupes de tailles différentes (groupe ajouté au Tour 1) : un joueur seul à sa place rejoint le niveau suivant (8 + 5 + 5 : les 6es, 7es et 8es du groupe A en triangulaire) */
  const z=L[L.length-1];if(L.length>1&&z.ids.length<=(tr?2:1)){L.pop();const all=[...L.pop().ids,...z.ids];
   if(tr){const sg=snakeG(all.length,2);L.push({ids:all.filter((_,i)=>!sg[i]),rr:false,sub:'A'},{ids:all.filter((_,i)=>sg[i]),rr:false,sub:'B',same:1})}else L.push({ids:all,rr:true})}
  let l=-1;return L.map(x=>({ids:x.ids,n:x.ids.length,rr:x.rr&&x.ids.length<8?1:0,sub:x.sub,l:x.same?l:++l,...(ng==3&&x.rr&&x.ids.length<8?{t3:1}:{})}))};/* 2 arbres équilibrés : même niveau, arbres A et B *//* 8 joueurs réunis : arbre */
@@ -972,9 +978,9 @@ const gSz=g=>g.m.slice(0,4).flatMap(m=>[m.a,m.b]).filter(x=>x!=null).length;
 /* niveaux prévus d'un tableau (avant la génération : d'après la taille des groupes) */
 const p2Of=c=>{const N=c.ent.filter(e=>!e.out).length,ng=c.g.length||Math.ceil(N/8),sz=c.g.length?c.g.map(gSz):Array.from({length:ng},(_,i)=>Math.floor(N/ng)+(i<N%ng?1:0));
  return ng<2||ng>8?[]:p2Lv(sz.map((n,gi)=>Array.from({length:n},(_,k)=>gi*10+k)),i=>i%10*100+Math.floor(i/10))};
-const p2Txt=L=>{const k={};L.forEach(x=>{const t=x.rr&&x.t3&&x.n==3?'triangulaire':x.rr&&x.n==2?'match à 2 (dernier niveau)':(x.rr?'poule de ':'arbre à ')+x.n;k[t]=(k[t]||0)+1});
+const p2Txt=L=>{const k={};L.forEach(x=>{const t=x.rr&&x.t3&&x.n==3?'triangulaire':x.rr&&x.n==2?'match à 2':(x.rr?'poule de ':'arbre à ')+x.n;k[t]=(k[t]||0)+1});
  return Object.entries(k).map(([t,n])=>n>1?n+' '+t.replace(/^poule/,'poules').replace(/^arbre/,'arbres').replace(/^triangulaire/,'triangulaires').replace(/^match à 2/,'matchs à 2'):'1 '+t).join(' + ')+(L.some(x=>!x.rr&&x.n<8)?' (avec byes)':'')+(L.some(x=>x.sub)?', dont 2 arbres équilibrés au même niveau':'')+(L.some(x=>x.rr)?', tout le monde se rencontre dans chaque poule':'')};
-const p2How=ng=>ng==2?'Niveaux : places 1 à 4 de chaque groupe ensemble, puis places 5 à 8.':ng==4?'Niveaux : 1ers et 2es de chaque groupe ensemble, puis 3es et 4es, 5es et 6es, 7es et 8es.':ng==8?'Niveaux : les 1ers de groupe ensemble, puis les 2es, et ainsi de suite.':ng==3?'Niveaux : les 1ers des 3 groupes ensemble, puis les 2es, et ainsi de suite jusqu\'aux 8es. Chaque niveau est une triangulaire : un match par tour (tours 4, 5 et 6), chacun joue 2 matchs, score exact.':'Avec '+ng+' groupes, on ne peut pas refaire des groupes de 8 : poules des 1ers, puis des 2es, et ainsi de suite.';
+const p2How=ng=>ng==2?'Niveaux : places 1 à 4 de chaque groupe ensemble, puis places 5 à 8.':ng==4?'Niveaux : 1ers et 2es de chaque groupe ensemble, puis 3es et 4es, 5es et 6es, 7es et 8es.':ng==8?'Niveaux : les 1ers de groupe ensemble, puis les 2es, et ainsi de suite.':ng==3?'Niveaux : les 1ers des 3 groupes ensemble, puis les 2es, et ainsi de suite jusqu\'aux 8es. Chaque niveau est une triangulaire : un match par tour (tours 4, 5 et 6), chacun joue 2 matchs, score exact. Si un groupe est plus petit (groupe ajouté au Tour 1), les places qu\'il n\'a pas sont regroupées dans un arbre de 8 places (byes s\'il en manque).':'Avec '+ng+' groupes, on ne peut pas refaire des groupes de 8 : poules des 1ers, puis des 2es, et ainsi de suite.';
 /* ordre des matchs d'une poule (méthode du cercle) : chacun joue à son tour, mais l'ordre reste libre */
 const rrP=n=>{const a=[...Array(n).keys()];if(n%2)a.push(-1);const k=a.length,P=[];for(let r=0;r<k-1;r++){for(let i=0;i<k/2;i++){const x=a[i],y=a[k-1-i];if(x>=0&&y>=0)P.push(x<y?[x,y,r]:[y,x,r])}a.splice(1,0,a.pop())}return P};/* [joueur, joueur, ronde] */
 function genP2(){const c=C(),ng=c.g.length;if(ng<2)return;if(ng>8)return msg('La phase de classement est prévue jusqu\'à 64 inscrits (8 groupes).');
@@ -1154,6 +1160,50 @@ function addLate(){const c=C(),k=CATS[S.cc],pl=ltPlan(c),sl=pl&&pl.sl;if(!sl)ret
  if(mv){const gt=c.g[mv.to.gi];put(gt,gt.m[mv.to.mi],mv.to.n,mv.O)}/* l'adversaire déplacé va sur la place libre choisie */
  put(g,m,sl.n,e.id);[...new Set([sl.gi,mv?mv.to.gi:sl.gi])].forEach(i=>{rst(c.g[i]);auto(c.g[i])});LT={k:S.cc};save();R();
  msg(names(e)+' ajouté'+(e.ids.length>1?'s':'')+' : groupe '+L(sl.gi)+', face à '+names(E(sl.who))+'.'+(mv?' '+names(E(mv.O))+' passe face à '+names(E(mv.to.who))+' (groupe '+L(mv.to.gi)+').':''))}
+/* ---------- Groupe ajouté au Tour 1 (Dan, 06/11/2026 : 5 paires arrivent alors que le Double Mixte est tiré et complet) ----------
+   Les arrivants attendent dans c.ngw ({ids, h, bye}), puis « Créer le groupe » ajoute un groupe à la suite (arbre de 8 places, byes s'il en manque),
+   sans toucher aux groupes déjà tirés ni à leurs matchs. Rangs : comme des retardataires (mkE : rang historique s'il existe, sinon [New] à la suite) ;
+   le rejeu les remet à leur place comme des retardataires. Byes : d'abord les arrivants choisis par l'organisateur, puis les mieux classés, puis les [New] tirés au sort.
+   La phase de classement suit le nouveau nombre de groupes (3 groupes : triangulaires des 1ers, des 2es…). Seulement pendant le Tour 1, avec déjà 2 groupes au moins
+   (avec 1 groupe, passer à 2 changerait les dates des tours). */
+const ngOk=c=>c.g.length>=2&&c.g.length<8&&!(c.p2||[]).length&&inT1();
+/* byes d'un arbre de 8 places pour n arrivants (snakeSl : les rangs locaux 1 à 4 au plus) ; cb = combien l'organisateur peut en choisir (0 si tout le monde en a un) */
+const ngBy=n=>n?Math.min(8-n,4,n):0,ngCb=n=>ngBy(n)<n?ngBy(n):0;
+const ngH=w=>w.h||((((S.lad||{})[S.cc]||[]).find(x=>x.k==w.ids.slice().sort().join('-'))||{}).rank||null);
+/* ordre de placement dans l'arbre (rang local 1, 2…) : byes choisis, puis classés par rang historique, puis [New] (tirés au sort si dr) */
+function ngOrd(c,dr){const W=c.ngw||[],ix=W.map((w,i)=>i),hk=i=>ngH(W[i])||1e9,cls=a=>a.filter(i=>ngH(W[i])).sort((x,y)=>hk(x)-hk(y)),nws=a=>{const n=a.filter(i=>!ngH(W[i]));return dr?draw(n):n};
+ const ch=ix.filter(i=>W[i].bye),ot=ix.filter(i=>!W[i].bye);return[...cls(ch),...nws(ch),...cls(ot),...nws(ot)]}
+function ngB(c){const k=CATS[S.cc],dbl=k[1]==2,t=k[2],s1=t=='M'?'F':t=='*'?'':t,s2=t=='M'?'H':s1,W=c.ngw||[],n=W.length,nBy=ngBy(n),cb=ngCb(n),nb=W.filter(w=>w.bye).length,
+  GL=String.fromCharCode(65+c.g.length),un=dbl?'paire':'joueur',uns=dbl?'paires':'joueurs',nmW=w=>w.ids.map(i=>P(i)?sn(i):'?').join(' / ');
+ if(c.g.length>=8)return`<p class="m">Le tableau a déjà 8 groupes : c'est le maximum.</p>`;
+ if(c.g.length<2)return`<p class="m">Possible quand le tableau a déjà au moins 2 groupes : avec un seul groupe, en ajouter un changerait les dates des tours.</p>`;
+ const ex=new Set([...c.ent.flatMap(e=>e.ids),...W.flatMap(w=>w.ids)]),sz=[...c.g.map(gSz),n],
+  LV=n>=2?p2Lv(sz.map((m,gi)=>Array.from({length:m},(_,j)=>gi*10+j)),i=>i%10*100+Math.floor(i/10)):[];
+ let pv='';if(n>=2){const ord=ngOrd(c,0),by=ord.slice(0,nBy),isN=i=>!W[i].bye&&!ngH(W[i]),dn=by.filter(isN).length,nwL=ord.filter(isN).length,det=by.filter(i=>!isN(i)||dn==nwL);
+  pv=`<div class="ltr ngp"><p><b>Groupe ${GL}</b> : ${n} ${uns}${nBy?`, ${nBy} qualifié${nBy>1?'s':''} d'office au Tour 1 (bye)`:''}.</p>`+
+   (nBy>=n?`<p class="m">Avec ${n} ${uns}, tout le monde est qualifié d'office au Tour 1 : les premiers matchs du groupe sont au Tour 2.</p>`:
+    nBy?`<p class="m">Bye : ${det.map(i=>`<b>${esc(nmW(W[i]))}</b>${W[i].bye?' (ton choix)':ngH(W[i])?' (#'+ngH(W[i])+')':''}`).join(', ')}${dn&&dn<nwL?`${det.length?', puis ':''}${dn} tiré${dn>1?'s':''} au sort parmi les ${nwL} [New]`:''}.</p>`:'')+
+   `<p class="m">Phase de classement avec ${c.g.length+1} groupes : ${esc(p2Txt(LV))}. ${esc(p2How(c.g.length+1))}</p>`+
+   `<div class="row"><button class="btn pri" onclick="ngAsk()">Créer le groupe ${GL}</button><span class="m">Les groupes ${c.g.map((g,i)=>String.fromCharCode(65+i)).join(', ')} et leurs matchs ne changent pas.</span></div></div>`}
+ return`<p class="m">Plusieurs ${uns} arrivent et il n'y a plus de place libre ? Mets-les dans un groupe de plus (de 2 à 8 ${uns}). Leur rang : rang historique s'il existe, sinon [New], comme un retardataire.</p>
+  <div class="row"><select id="ng1" aria-label="${dbl?'Premier joueur':'Joueur'}"><option value="">${t=='M'?'Joueuse…':'Joueur…'}</option>${opts(s1,ex)}</select>${dbl?`<select id="ng2" aria-label="Partenaire"><option value="">${t=='M'?'Joueur…':'Partenaire…'}</option>${opts(s2,ex)}</select>`:''}<input id="ngh" type="number" min="1" placeholder="Rang historique (vide = auto)" style="width:250px"><button class="btn" onclick="ngAdd()">Ajouter à la liste</button></div>
+  ${n?`<div class="qel">${W.map((w,i)=>{const h=ngH(w);return`<div class="qe"><div class="qeh"><span class="rb${h?'':' new'}">${h?'#'+h:'New'}</span><b>${esc(nmW(w))}</b><span class="qea">${cb?`<label class="chip ckc"><input type="checkbox" id="ngb${i}"${w.bye?' checked':''}${!w.bye&&nb>=cb?' disabled':''} onchange="ngBye(${i},this.checked)"> Bye au Tour 1</label>`:''}<button class="x" onclick="ngRm(${i})" aria-label="Retirer ${esc(nmW(w))} de la liste" title="Retirer de la liste">✕</button></span></div></div>`}).join('')}</div>`:''}
+  ${cb?`<p class="m">Coche « Bye au Tour 1 » pour choisir qui est qualifié d'office (${cb} au plus). Sans choix : les mieux classés, puis les [New] tirés au sort.</p>`:''}
+  ${n==1?`<p class="m">Ajoute au moins un${dbl?'e autre paire':' autre joueur'} pour former un groupe.</p>`:''}${pv}`}
+function ngAdd(){const c=C(),k=CATS[S.cc],ids=[+(($('ng1')||{}).value||0)];if(k[1]==2)ids.push(+(($('ng2')||{}).value||0));const er=chkIds(ids);if(er)return msg(er);
+ const W=c.ngw||[];if(W.some(w=>w.ids.some(i=>ids.includes(i))))return msg('Déjà dans la liste du nouveau groupe.');if(W.length>=8)return msg('8 '+(k[1]==2?'paires':'joueurs')+' au maximum dans un groupe.');
+ const hv=String(($('ngh')||{}).value||'').trim(),h=hv?parseInt(hv,10):null;if(hv&&!(h>=1))return msg('Rang historique : un nombre, ou vide.');
+ snap();const N=[...W,{ids,h:h||null,bye:0}],cb=ngCb(N.length);let kb=0;N.forEach(w=>{if(w.bye&&++kb>cb)w.bye=0});c.ngw=N;FO.t1=true;save();R()}
+function ngRm(i){const c=C();if(!(c.ngw||[])[i])return;snap();c.ngw.splice(i,1);if(!c.ngw.length)delete c.ngw;save();R()}
+function ngBye(i,v){const c=C(),W=c.ngw||[];if(!W[i])return;const B=ngCb(W.length);if(v&&W.filter(w=>w.bye).length>=B){R();return msg(B?'Pas plus de '+B+' bye'+(B>1?'s':'')+' pour '+W.length+(CATS[S.cc][1]==2?' paires.':' joueurs.'):'Tout le monde a déjà un bye au Tour 1.')}snap();W[i].bye=v?1:0;save();R()}
+function ngAsk(){const c=C(),W=c.ngw||[],GL=String.fromCharCode(65+c.g.length);if(!ngOk(c))return msg('Un groupe ne s\'ajoute que pendant le Tour 1, avant la phase de classement, avec déjà 2 à 7 groupes.');if(W.length<2)return msg('Il faut au moins 2 '+(CATS[S.cc][1]==2?'paires':'joueurs')+'.');
+ ask('Créer le groupe '+GL+' ?',W.length+' '+(CATS[S.cc][1]==2?'paires entrent':'joueurs entrent')+' dans '+esc(CATS[S.cc][0])+', dans un groupe '+GL+' qui joue les mêmes tours que les autres. Les groupes déjà tirés ne changent pas. La phase de classement se fera avec '+(c.g.length+1)+' groupes. « ↶ Annuler » permet de revenir en arrière.','Créer le groupe',ngMake)}
+function ngMake(){const c=C(),W=c.ngw||[],n=W.length;if(!ngOk(c)||n<2||n>8)return;
+ for(const w of W){const er=chkIds(w.ids);if(er)return msg(w.ids.map(sn).join(' / ')+' : '+er)}snap();
+ const ord=ngOrd(c,1),es=ord.map(i=>mkE(c,W[i].ids,W[i].h||'',0)),sl=snakeSl(1,8,es.map(e=>e.id),es.length)[0],
+  g={m:[[0,7],[4,3],[2,5],[6,1]].map(([x,y])=>({a:sl[x],b:sl[y]})).concat([['W0','W1'],['W2','W3'],['L0','L1'],['L2','L3'],['W4','W5'],['L4','L5'],['W6','W7'],['L6','L7']].map(([a,b])=>({a,b})))};
+ auto(g);c.g.push(g);delete c.ngw;const GL=String.fromCharCode(64+c.g.length),by=g.m.slice(0,4).filter(m=>m.bye&&m.w!=null).map(m=>names(E(m.w)));
+ save();R();msg('Groupe '+GL+' créé : '+n+(CATS[S.cc][1]==2?' paires':' joueurs')+(by.length?'. Qualifié'+(by.length>1?'s':'')+' d\'office au Tour 1 : '+by.join(', '):'')+'.')}
 function doRep(){const c=C(),k=CATS[S.cc],[eid,pid]=($('rp').value||':').split(':').map(Number),old=c.ent.find(e=>e.id==eid),nid=+$('rn').value;
  if(!old||!nid)return msg('Choisis le joueur à remplacer et son remplaçant.');
  const ids=k[1]==2?[old.ids.find(i=>i!=pid),nid]:[nid],er=chkIds(ids,eid);if(er)return msg(er);
@@ -1860,7 +1910,8 @@ function dashR(){const ks=S.club.cats.filter(k=>S.ch[k]&&S.ch[k].ent.length);if(
 function t1B(c){if(!inT1())return`<p class="m">Retardataires et remplacements sont possibles uniquement pendant le Tour 1 (terminé le ${fr(per()[0].b)}).</p>`;
  const k=CATS[S.cc],t=k[2],s1=t=='M'?'F':t=='*'?'':t,s2=t=='M'?'H':s1,sl=lateSlot(c),reps=c.ent.filter(e=>canRep(c,e)),ex=new Set(c.ent.flatMap(e=>e.ids));
  return`<div class="dsec" style="border:0;padding:0"><h4>Retardataire</h4>${sl?(()=>{if(LT.k!=S.cc)LT={k:S.cc};const oc=f=>`onchange="LT.k=S.cc;LT.${f}=this.value;ltR()"`;
-  return`<div class="lts"><i>1</i>Qui arrive ?</div><div class="row"><select id="l1" ${oc('p1')} aria-label="${k[1]==2?'Premier joueur':'Joueur'}"><option value="">${t=='M'?'Joueuse…':'Joueur…'}</option>${opts(s1,ex,LT.p1)}</select>${k[1]==2?`<select id="l2" ${oc('p2')} aria-label="Partenaire"><option value="">${t=='M'?'Joueur…':'Partenaire…'}</option>${opts(s2,ex,LT.p2)}</select>`:''}<input id="lh" type="number" min="1" placeholder="Rang historique (vide = auto)" style="width:250px" value="${esc(LT.h||'')}" oninput="LT.k=S.cc;LT.h=this.value"></div><div id="ltw" style="display:flex;flex-direction:column;gap:8px">${ltW(c)}</div>`})():'<p class="m">Aucune place libre au Tour 1 : il faut au moins un joueur qualifié d\'office (bye) dans un groupe où le Tour 2 n\'a pas commencé.</p>'}</div>
+  return`<div class="lts"><i>1</i>Qui arrive ?</div><div class="row"><select id="l1" ${oc('p1')} aria-label="${k[1]==2?'Premier joueur':'Joueur'}"><option value="">${t=='M'?'Joueuse…':'Joueur…'}</option>${opts(s1,ex,LT.p1)}</select>${k[1]==2?`<select id="l2" ${oc('p2')} aria-label="Partenaire"><option value="">${t=='M'?'Joueur…':'Partenaire…'}</option>${opts(s2,ex,LT.p2)}</select>`:''}<input id="lh" type="number" min="1" placeholder="Rang historique (vide = auto)" style="width:250px" value="${esc(LT.h||'')}" oninput="LT.k=S.cc;LT.h=this.value"></div><div id="ltw" style="display:flex;flex-direction:column;gap:8px">${ltW(c)}</div>`})():'<p class="m">Aucune place libre au Tour 1 : il faut au moins un joueur qualifié d\'office (bye) dans un groupe où le Tour 2 n\'a pas commencé. Plusieurs arrivants : « Nouveau groupe » ci-dessous.</p>'}</div>
+ <div class="dsec"><h4>Nouveau groupe</h4>${ngB(c)}</div>
  <div class="dsec"><h4>Remplacement</h4><div class="row"><select id="rp"><option value="">Joueur à remplacer…</option>${reps.flatMap(e=>e.ids.map(i=>`<option value="${e.id}:${i}">${esc(sn(i))}${e.ids.length>1?' (paire '+esc(names(e))+')':''}</option>`)).join('')}</select><select id="rn"><option value="">Remplaçant…</option>${opts(t=='H'||t=='F'?t:'',ex)}</select>${k[1]==1?'<input id="rh" type="number" min="1" placeholder="Rang historique (vide = auto)" style="width:250px">':''}<button class="btn" onclick="doRep()">Remplacer</button></div>
  <p class="m">Possible jusqu'au ${fr(per()[0].b)} (fin du Tour 1), même si son match est déjà joué. Le joueur remplacé garde son rang. En double, la paire reformée devient [New], sauf si elle a déjà un rang au classement historique.${(c.rep||[]).length?' Déjà fait : '+esc(c.rep.join(' · '))+'.':''}</p></div>`}
 function calB(){const pe=per();return`<div class="row"><label class="row">Début <input id="cs" type="date" value="${S.cal.s}" onchange="if(this.value){S.cal.s=this.value;S.cal.ov={};save();R()}"></label><label class="row">Fin <input id="ce" type="date" value="${S.cal.e}" onchange="if(this.value){S.cal.e=this.value;S.cal.ov={};save();R()}"></label></div>
@@ -2156,7 +2207,8 @@ function rgAdh(){const ff=esc(ffS('a').replace(/, /g,' ; ')),sets=SC().mode=='se
   <h4>Retardataire (inscription après la formation des groupes)</h4><ul>
   <li>Il entre s'il reste une place vacante (bye) dans un groupe dont le Tour 2 n'a pas commencé.</li>
   <li>Il prend en principe la place vacante face au joueur qualifié d'office le moins bien classé, pour que le meilleur garde son repos. Le gestionnaire peut aussi choisir le groupe et l'adversaire ; si cet adversaire avait déjà un match, son adversaire de départ change de place et joue un joueur qualifié d'office.</li>
-  <li>Il part avec son rang historique s'il en a un, sinon [New].</li></ul>
+  <li>Il part avec son rang historique s'il en a un, sinon [New].</li>
+  <li>Si plusieurs joueurs ou paires arrivent pendant le Tour 1 et qu'il n'y a plus de place, ils peuvent former un groupe de plus (2 à 8, avec des byes s'il en manque), sans changer les groupes déjà tirés. La phase de classement se fait alors avec ce nouveau nombre de groupes.</li></ul>
   <h4>Désistement après le tirage (avant le 1er match)</h4><ul>
   <li>Le tirage est gardé. Pour combler la place libérée, un joueur est qualifié d'office au Tour 1 et son adversaire prend la place libérée : par défaut le mieux classé du groupe, ou celui du plus gros groupe pour garder des groupes équilibrés.</li>
   <li>Les rangs de ceux qui étaient derrière remontent d'une place.</li></ul>
@@ -2207,6 +2259,7 @@ function rgGes(){const fl=esc((PRESET&&PRESET.file)||'club-manager.html'),db=S.c
   <tr><td><b>Abandon</b></td><td>⋯ du match › … abandonne</td><td>En poule : le score à l'arrêt, joueur du haut en premier, le dernier set étant celui en cours (ex. ${esc(exAb())})</td></tr>
   <tr><td><b>Tapis vert</b></td><td>⋯ du match › Départager</td><td>Le nombre de créneaux proposés par chacun</td></tr>
   <tr><td><b>Retardataire</b></td><td>Tour 1 : retardataire et remplacement</td><td>Qui arrive, puis touche son adversaire sur le tableau (sinon placement automatique), puis Valide</td></tr>
+  <tr><td><b>Plusieurs arrivants, plus de place</b></td><td>Tour 1 : retardataire et remplacement › Nouveau groupe</td><td>Les arrivants (2 à 8), qui a un bye si tu veux le choisir, puis « Créer le groupe »</td></tr>
   <tr><td><b>Désistement après le tirage</b></td><td>✕ de l'inscrit (aucun match joué)</td><td>Qui est qualifié d'office (proposé par défaut), puis « Retirer et garder le tirage »</td></tr>
   <tr><td><b>Remplacement</b></td><td>Tour 1 : retardataire et remplacement › Remplacer</td><td>Le joueur à remplacer et son remplaçant</td></tr></table></div>
   <p><b>Avant un tapis vert</b>, demande aux deux joueurs leurs messages de propositions et compte les créneaux. L'appli applique les critères dans l'ordre et affiche celui qui a tranché.</p>`)

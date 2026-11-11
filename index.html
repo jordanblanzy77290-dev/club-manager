@@ -809,7 +809,7 @@ function qAdd(){const k=CATS[S.cc],pr=(($('qp')||{}).value||'').trim(),no=(($('q
  if(k[1]==1)return regE([id],'')||(R(),undefined);
  PSEL=PSEL.filter(i=>i!=id);PSEL.push(id);if(PSEL.length>2)PSEL.shift();R();msg(sn(id)+(ex?' existe déjà : ':' ajouté(e) : ')+(PSEL.length<2?'ajoute ou choisis maintenant son ou sa partenaire.':'la paire est prête, clique sur « Inscrire la paire ».'))}
 /* nombre de tableaux d'un joueur : ses inscriptions, plus ses inscriptions « seul » dans les autres tableaux de double (3 au maximum) */
-const nTab=i=>{let n=0;Object.entries(S.ch).forEach(([kk,x])=>{x.ent.forEach(e=>{if(e.ids.includes(i))n++});if(kk!=S.cc&&(x.solo||[]).includes(i))n++});return n};
+const nTab=i=>{const T=new Set;Object.entries(S.ch).forEach(([kk,x])=>{if(x.ent.some(e=>!e.out&&e.ids.includes(i))||(kk!=S.cc&&(x.solo||[]).includes(i)))T.add(kk)});return T.size};/* nombre de tableaux du joueur (inscriptions remplacées non comptées) */
 /* joueurs seuls en double : inscrits sans partenaire, associés par tirage au sort à la clôture des inscriptions (un homme et une femme en mixte).
    Un joueur resté sans partenaire reste dans la liste : l'organisateur l'associe à la main (« Former la paire ») ou le retire */
 function soloAdd(){const k=CATS[S.cc],c=C(),id=+(($('e3')||{}).value||0);if(k[1]!=2)return;if(!id)return msg('Choisis le joueur sans partenaire.');
@@ -1107,8 +1107,9 @@ const inT1=()=>{const p=per()[0];return!p||iso(new Date())<=p.b};/* retardataire
 const opts=(sx,ex,sel)=>S.players.filter(p=>p.actif&&(!sx||p.sexe==sx)&&!(ex&&ex.has(p.id))).sort(byF).map(p=>`<option value="${p.id}"${p.id==sel?' selected':''}>${esc(sn(p.id))}</option>`).join('');
 function chkIds(ids,skip){const k=CATS[S.cc],c=C();if(ids.some(i=>!i)||ids[1]==ids[0])return'Choisis les joueurs.';const sx=ids.map(i=>P(i).sexe);
  if((k[2]=='H'&&sx.some(s=>s!='H'))||(k[2]=='F'&&sx.some(s=>s!='F'))||(k[2]=='M'&&sx[0]==sx[1]))return'Joueur(s) non éligible(s) pour ce tableau.';
- for(const i of ids){let n=0;Object.values(S.ch).forEach(x=>x.ent.forEach(e=>{if(e.id!=skip&&e.ids.includes(i))n++}));if(n>=3)return sn(i)+' est déjà dans 3 tableaux (maximum).'}
- if(c.ent.some(e=>e.id!=skip&&ids.some(i=>e.ids.includes(i))))return'Déjà inscrit dans ce tableau.';return''}
+ /* maximum 3 tableaux par joueur : on compte les tableaux (pas les inscriptions), sans les inscriptions remplacées (Dan, 11/11/2026 : après un 1er remplacement, l'ancienne paire comptait encore pour le partenaire qui reste) */
+ for(const i of ids){const T=new Set;Object.entries(S.ch).forEach(([kk,x])=>x.ent.forEach(e=>{if(e.id!=skip&&!e.out&&e.ids.includes(i))T.add(kk)}));T.delete(S.cc);if(T.size>=3)return sn(i)+' est déjà dans 3 tableaux (maximum).'}
+ if(c.ent.some(e=>e.id!=skip&&!e.out&&ids.some(i=>e.ids.includes(i))))return'Déjà inscrit dans ce tableau.';return''}
 function mkE(c,ids,hv,fn){const key=ids.slice().sort().join('-'),h=fn?null:(hv?+hv:((((S.lad||{})[S.cc]||[]).find(x=>x.k==key)||{}).rank||null)),nw=!h;let r;
  if(nw)r=c.ent.length+1;else{r=1+c.ent.filter(e=>!e.nw&&e.h&&e.h<h).length;c.ent.forEach(e=>{if(e.r>=r)e.r++})}
  const e={id:S.nid++,ids,nw,h,r,r0:r,late:1,at:S.seq=(S.seq||0)+1};c.ent.push(e);return e}

@@ -2188,7 +2188,7 @@ function pfR(id){const p=P(id);if(!p){S.pf=0;return jR()}const all=[];
    u = unité de la valeur (fois par défaut), S / H = seuils bronze, argent, or, platine de la saison / de l'historique (par défaut CBS / CBH0),
    v(x) = valeur sur une ligne de tableau (0 = pas gagné) : x.r (ligne : n, w, l, f, fw, b, ab, r0, r, new), x.M (ses matchs dans l'ordre), x.P (matchs joués), x.mx (le plus de matchs joués du tableau),
    x.runs(test, n) (nombre de séries de n de suite), x.cnt(test) ; chaque match : won, ty ('' joué, ab abandon, ff forfait, tv tapis vert, bye), p0 / po (rangs avant le match, à lui / à l'adversaire, 'New' possible),
-   st (sets [à lui, à l'adversaire], si le score est saisi). sea:1 = valeur sur la saison entière d'un joueur : v(s), s.nTab = nombre de tableaux, s.n = matchs joués. ---------- */
+   st (sets [à lui, à l'adversaire], si le score est saisi). sea:1 = valeur sur la saison entière d'un joueur : v(s), s.nTab = nombre de tableaux, s.n = matchs joués, s.mx = le plus de matchs joués par un joueur cette saison (tous tableaux). ---------- */
 const CBTY={pos:['👍','Les bons'],neg:['😬','Les mauvais (pour rire)'],hum:['😄','Pour rire']},CBMOD={c:'Challenge interne'};
 const CBL=[['🥉','Bronze'],['🥈','Argent'],['🥇','Or'],['💎','Platine']],CBS=[1,2,3,4],CBH0=[1,4,8,15];
 const cbN=v=>typeof v=='number',cbPts=(s,j)=>s.reduce((t,x)=>t+x[j],0),cbSet=m=>m.st&&m.st.length;
@@ -2199,14 +2199,14 @@ const CBD=[
  {id:'shield',ic:'🛡️',t:'Intouchable',ty:'pos',u:'matchs',S:[3,4,5,6],H:[3,10,20,35],d:'Jouer au moins 3 matchs d\'un tableau sans aucune défaite',v:x=>(x.r.n||0)>=3&&!x.r.l&&!x.r.f?x.r.n:0},
  {id:'remo',ic:'💪',t:'Remontada',ty:'pos',d:'Gagner en 3 sets après avoir perdu le 1er (score saisi)',v:x=>x.cnt(m=>cbSet(m)==3&&m.won&&m.st[0][0]<m.st[0][1])},
  {id:'roll',ic:'🚜',t:'Rouleau compresseur',ty:'pos',d:'Gagner 2 sets à 0, l\'adversaire marquant au plus la moitié de tes points (score saisi)',v:x=>x.cnt(m=>cbSet(m)==2&&m.won&&m.st.every(s=>s[0]>s[1])&&2*cbPts(m.st,1)<=cbPts(m.st,0))},
- {id:'iron',ic:'🔋',t:'Increvable',ty:'pos',u:'matchs',S:[4,6,8,10],H:[4,12,25,40],d:'Jouer le plus de matchs de ton tableau (au moins 4)',v:x=>x.mx>=4&&x.r.n==x.mx?x.r.n:0},
+ {id:'iron',ic:'🔋',t:'Increvable',ty:'pos',u:'matchs',S:[6,10,14,18],H:[6,18,36,54],d:'Être le joueur qui a joué le plus de matchs de la saison, tous tableaux confondus (au moins 6)',sea:1,v:s=>s.n>=6&&s.n==s.mx?s.n:0},/* v82 (Dan, 13/11/2026) : sur la saison entière ; avant, le plus actif de chaque tableau (presque tout le monde à égalité dans les arbres) */
  {id:'ghost',ic:'👻',t:'Fantôme',ty:'neg',d:'Déclarer forfait',v:x=>x.r.f||0},
  {id:'cold',ic:'🧊',t:'Série noire',ty:'neg',d:'Perdre 3 matchs de suite (chaque série de 3 compte)',v:x=>x.runs(m=>!m.won,3)},
  {id:'slide',ic:'📉',t:'Toboggan',ty:'neg',u:'places',S:[5,8,12,16],H:[5,15,30,50],d:'Perdre au moins 5 places depuis ton rang de départ de la saison',v:x=>x.r.r-x.r.r0>=5?x.r.r-x.r.r0:0},
  {id:'banana',ic:'🍌',t:'Peau de banane',ty:'neg',d:'Être battu par un adversaire classé au moins 5 places derrière toi',v:x=>x.cnt(m=>!m.won&&cbN(m.p0)&&cbN(m.po)&&m.po-m.p0>=5)},
  {id:'bobo',ic:'🩹',t:'Bobo',ty:'neg',d:'Abandonner un match en cours',v:x=>x.r.ab||0},
  {id:'miss',ic:'📵',t:'Rendez-vous manqué',ty:'neg',d:'Perdre au tapis vert, faute d\'avoir joué le match',v:x=>x.M.filter(m=>m.ty=='tv'&&!m.won).length},
- {id:'coaster',ic:'🎢',t:'Montagnes russes',ty:'hum',d:'Enchaîner 4 matchs en alternant victoire et défaite',v:x=>{let n=0,i=0;const P=x.P;while(i+3<P.length){if(P[i].won!=P[i+1].won&&P[i+1].won!=P[i+2].won&&P[i+2].won!=P[i+3].won){n++;i+=4}else i++}return n}},
+ {id:'coaster',ic:'🎢',t:'Montagnes russes',ty:'hum',d:'Enchaîner au moins 4 matchs en alternant victoire et défaite (chaque match de plus qui prolonge le zigzag compte)',v:x=>{const P=x.P;let n=0,k=1;for(let i=1;i<P.length;i++){k=P[i].won!=P[i-1].won?k+1:1;if(k>=4)n++}return n}},/* v82 (Dan, 13/11/2026) : zigzag ; avant, séquences de 4 sans chevauchement (au plus 1 par tableau, platine impossible) */
  {id:'beach',ic:'🏖️',t:'Vacancier',ty:'hum',d:'Être qualifié d\'office : passer un tour sans jouer',v:x=>x.r.b||0},
  {id:'gift',ic:'🎁',t:'Merci du cadeau',ty:'hum',d:'Gagner par forfait de l\'adversaire',v:x=>x.r.fw||0},
  {id:'diplo',ic:'⚖️',t:'Diplomate',ty:'hum',d:'Gagner au tapis vert, sans jouer',v:x=>x.M.filter(m=>m.ty=='tv'&&m.won).length},
@@ -2225,14 +2225,16 @@ function cbRows(rows,ms){const same=(x,ids)=>x.length==ids.length&&x.every(i=>id
  return rows.map(r=>{const M=(ms||[]).filter(m=>same(m.a,r.ids)||(m.b.length&&same(m.b,r.ids))).map(m=>{const me=same(m.a,r.ids)?'a':'b';return{won:m.w==me,ty:m.ty||'',p0:me=='a'?m.pa:m.pb,po:me=='a'?m.pb:m.pa,st:m.ty?null:sets(m.sc,me)}}),
   P=M.filter(m=>m.ty==''||m.ty=='ab'),x={r,M,P,mx,cnt:f=>P.filter(m=>{try{return!!f(m)}catch(e){return false}}).length,runs:(f,n)=>{let k=0,c=0;for(const m of P){k=f(m)?k+1:0;if(k==n){c++;k=0}}return c}},o={};
   CBD.filter(b=>!b.sea&&b.mod=='c').forEach(b=>{let v=0;try{v=+b.v(x)||0}catch(e){}if(v>0)o[b.id]=v});return o})}
+/* matchs joués par chaque joueur sur chaque saison (tous tableaux) : le plus grand nombre de chaque saison (Increvable, v82) */
+function cbSeaMx(L){const N={},mx={};L.forEach(s=>s.rows.forEach(r=>r.ids.forEach(id=>{const Y=N[s.y]=N[s.y]||{};Y[id]=(Y[id]||0)+(r.n||0)})));Object.entries(N).forEach(([y,Y])=>mx[y]=Math.max(0,...Object.values(Y)));return mx}
 /* toutes les saisons : archives, puis tableaux en cours */
 function cbSeasons(){const L=[];(S.arch||[]).forEach(a=>L.push({y:a.y,k:a.c,rows:a.rows||[],ms:a.ms||null}));
  Object.keys(S.ch||{}).forEach(k=>{const c=S.ch[k];if(c&&c.g&&c.g.length)L.push({y:season(),k,rows:mkRows(c),ms:chMs(c),cur:1})});return L}
 /* badges d'un joueur : valeurs de la saison en cours (remises à zéro chaque saison) et de toutes les saisons (historique), niveaux */
-function cbPl(id,L){L=L||cbSeasons();const sn=season(),cur={},ck={},tot={},ys={};
+function cbPl(id,L){L=L||cbSeasons();const sn=season(),cur={},ck={},tot={},ys={},SM=cbSeaMx(L);
  L.forEach(s=>{const o=cbRows(s.rows,s.ms);s.rows.forEach((r,i)=>{if(!r.ids.includes(id))return;const Y=ys[s.y]=ys[s.y]||{T:new Set,n:0};Y.T.add(s.k);Y.n+=r.n||0;
   Object.entries(o[i]).forEach(([b,v])=>{tot[b]=(tot[b]||0)+v;if(s.y==sn){cur[b]=(cur[b]||0)+v;(ck[b]=ck[b]||[]).includes(s.k)||ck[b].push(s.k)}})})});
- Object.entries(ys).forEach(([y,Y])=>CBD.filter(b=>b.sea).forEach(b=>{let v=0;try{v=+b.v({nTab:Y.T.size,n:Y.n})||0}catch(e){}if(v>0){tot[b.id]=(tot[b.id]||0)+v;if(y==sn)cur[b.id]=(cur[b.id]||0)+v}}));
+ Object.entries(ys).forEach(([y,Y])=>CBD.filter(b=>b.sea).forEach(b=>{let v=0;try{v=+b.v({nTab:Y.T.size,n:Y.n,mx:SM[y]||0})||0}catch(e){}if(v>0){tot[b.id]=(tot[b.id]||0)+v;if(y==sn)cur[b.id]=(cur[b.id]||0)+v}}));
  const ls={},lh={};Object.keys(cur).forEach(b=>ls[b]=cbLv(cur[b],cbOf(b).S));Object.keys(tot).forEach(b=>lh[b]=cbLv(tot[b],cbOf(b).H));
  return{cur,ck,tot,sn,ls,lh}}
 /* unité au singulier pour 1 (« 1 victoire », « 1 place ») */
@@ -2269,10 +2271,10 @@ function cbFold(k){const L=cbTab(k),n=L.reduce((s,x)=>s+x.who.length,0);
 /* v80 (Dan, 13/11/2026 : « tu n'as pas mis de badge ? ») : badges visibles sans ouvrir la fiche : sous le nom (fiche), dans la liste des joueurs, compteur de l'onglet Joueurs.
    cbAll : les badges de tous les joueurs en une passe (une fois par affichage, CBC vidé par R()). */
 let CBC=null;
-function cbAll(){if(CBC)return CBC;const sn=season(),A={},ys={};
- cbSeasons().forEach(s=>{const o=cbRows(s.rows,s.ms);s.rows.forEach((r,i)=>r.ids.forEach(id=>{const P=A[id]=A[id]||{cur:{},ck:{},tot:{},sn},Y=(ys[id]=ys[id]||{})[s.y]=ys[id][s.y]||{T:new Set,n:0};Y.T.add(s.k);Y.n+=r.n||0;
+function cbAll(){if(CBC)return CBC;const sn=season(),A={},ys={},L=cbSeasons(),SM=cbSeaMx(L);
+ L.forEach(s=>{const o=cbRows(s.rows,s.ms);s.rows.forEach((r,i)=>r.ids.forEach(id=>{const P=A[id]=A[id]||{cur:{},ck:{},tot:{},sn},Y=(ys[id]=ys[id]||{})[s.y]=ys[id][s.y]||{T:new Set,n:0};Y.T.add(s.k);Y.n+=r.n||0;
   Object.entries(o[i]).forEach(([b,v])=>{P.tot[b]=(P.tot[b]||0)+v;if(s.y==sn){P.cur[b]=(P.cur[b]||0)+v;(P.ck[b]=P.ck[b]||[]).includes(s.k)||P.ck[b].push(s.k)}})}))});
- Object.entries(ys).forEach(([id,Ys])=>Object.entries(Ys).forEach(([y,Y])=>CBD.filter(b=>b.sea).forEach(b=>{let v=0;try{v=+b.v({nTab:Y.T.size,n:Y.n})||0}catch(e){}if(v>0){const P=A[id];P.tot[b.id]=(P.tot[b.id]||0)+v;if(y==sn)P.cur[b.id]=(P.cur[b.id]||0)+v}})));
+ Object.entries(ys).forEach(([id,Ys])=>Object.entries(Ys).forEach(([y,Y])=>CBD.filter(b=>b.sea).forEach(b=>{let v=0;try{v=+b.v({nTab:Y.T.size,n:Y.n,mx:SM[y]||0})||0}catch(e){}if(v>0){const P=A[id];P.tot[b.id]=(P.tot[b.id]||0)+v;if(y==sn)P.cur[b.id]=(P.cur[b.id]||0)+v}})));
  Object.values(A).forEach(P=>{P.ls={};P.lh={};Object.keys(P.cur).forEach(b=>P.ls[b]=cbLv(P.cur[b],cbOf(b).S));Object.keys(P.tot).forEach(b=>P.lh[b]=cbLv(P.tot[b],cbOf(b).H))});return CBC=A}
 /* badges de la saison d'un joueur, visibles (ordre du catalogue) */
 const cbSea=id=>{if(!modOn('c'))return[];const P=cbAll()[id];return P?Object.keys(P.cur).filter(b=>P.ls[b]&&cbVis(cbOf(b))).sort((a,b)=>cbOrd(a)-cbOrd(b)).map(b=>({b,lv:P.ls[b],n:P.cur[b],k:P.ck[b]})):[]};

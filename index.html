@@ -791,7 +791,22 @@ function impo(f){if(!f)return;const r=new FileReader();r.onload=()=>{let d;try{d
 /* ---------- Module 1 : Challenge Monrad (règlement) ---------- */
 const CATS={SH:['Simple Homme',1,'H'],DH:['Double Homme',2,'H'],DM:['Double Mixte',2,'M'],SD:['Simple Dame',1,'F'],DD:['Double Dame',2,'F'],SI:['Simple Intergenre',1,'*'],DI:['Double Intergenre',2,'*']};
 const C=()=>S.ch[S.cc]||(S.ch[S.cc]={ent:[],g:[]}),E=id=>C().ent.find(e=>e.id==id);
-const en=e=>(e.nw?'[New] ':'#'+e.r+' ')+e.ids.map(sn).join(' / ');
+/* v81 (Dan, 13/11/2026 : « il faut la possibilité d'avoir un rang égal, à part à la fin de la phase 1 où on doit avoir l'ordre de 1 à 24 ») : rangs ex æquo en phase 1.
+   Un joueur sans rang historique (e.eq) reste à égalité avec les autres tant qu'il n'a pas gagné de match ; ils sont à la suite des joueurs déjà départagés et s'affichent « =10 » (10e ex æquo).
+   Son premier match gagné lui donne un rang : le vol de rang s'il bat un mieux classé, sinon la 1re place des ex æquo (eqWin). À la génération de la phase 2, les ex æquo sont départagés
+   par leur place dans leur groupe, puis par le tirage au sort (eqRes). c.eqv = 1 : tableau avec cette règle (tirés depuis la v81, ou repris une fois par rejeu : eqMig). */
+const eqTop=c=>{if(!c||c.final)return null;/* pas de test sur la phase 2 : au rejeu elle existe déjà ; eqRes efface les ex æquo à sa génération */let t=null;(c.ent||[]).forEach(e=>{if(e.eq&&!e.out&&(t==null||e.r<t))t=e.r});return t};
+const eqOf=e=>{const c=Object.values(S.ch||{}).find(x=>(x.ent||[]).includes(e));return c?eqTop(c):null};
+const rkE=e=>{const t=e.eq&&!e.out?eqOf(e):null;return e.nw?'New':t!=null?'='+t:'#'+e.r};
+const eqV=(c,e)=>{const t=e.eq&&!e.out?eqTop(c):null;return e.nw?'New':t!=null?'='+t:e.r};/* rang gardé dans un match : 'New', '=10' (ex æquo) ou le rang */
+const rkTx=v=>v==='New'?'New':typeof v=='number'?'#'+v:typeof v=='string'&&v[0]=='='?v:'',rkNx=v=>typeof v=='number'?v:typeof v=='string'&&v[0]=='='?+v.slice(1):1e9;
+function eqWin(c,x){if(!x.eq)return;delete x.eq;const t=eqTop(c);if(t!=null&&x.r>t){const a=t,b=x.r;c.ent.forEach(e=>{if(e.r>=a&&e.r<b)e.r++});x.r=a}}
+function eqRes(c){const T=c.ent.filter(e=>e.eq&&!e.out);c.ent.forEach(e=>{delete e.eq});if(T.length<2)return;const pl={};c.g.forEach(g=>treePos(g).forEach((id,i)=>{if(id!=null)pl[id]=i}));
+ const pos=T.map(e=>e.r).sort((a,b)=>a-b),P=e=>pl[e.id]!=null?pl[e.id]:99;T.sort((a,b)=>P(a)-P(b)||a.r-b.r).forEach((e,i)=>{e.r=pos[i]})}
+/* tableaux tirés avant la v81, encore en phase 1 : rejoués une fois avec la nouvelle règle (sinon : ex æquo sans déplacement) */
+function eqMig(){Object.keys(S.ch||{}).forEach(k=>{const c=S.ch[k];if(!c||c.eqv||!c.g||!c.g.length||(c.p2||[]).length||c.final)return;
+ const r=chRep(k,x=>{x.eqv=1});if(r.ok){S.ch[k]=r.c;return}c.eqv=1;const won=new Set;c.g.forEach(g=>g.m.forEach(m=>{if(m.done&&!m.bye&&m.w!=null)won.add(m.w)}));c.ent.forEach(e=>{if(!e.h&&!e.out&&!won.has(e.id))e.eq=1})})}
+const en=e=>(e.nw?'[New] ':rkE(e)+' ')+e.ids.map(sn).join(' / ');
 const sb=(g,v)=>(v&&g.sub&&g.sub[v])||v,rs=(g,x)=>typeof x=='string'?sb(g,g.m[+x.slice(1)][x[0]=='W'?'w':'l']):x;
 const need=(pp,g)=>!!pp&&!!g&&!!g.rr&&!!(g.sc||C().g.length==3);/* Phase 1 et arbres : jamais de score. Score exact : seulement dans les poules de la phase de classement (tout le monde se rencontre), où il sert au départage */
 /* plusieurs groupes : phase de positionnement puis phase de classement ; groupe unique : directement la phase de classement */
@@ -855,7 +870,7 @@ function rmAsk(id){const c=C(),e=c.ent.find(x=>x.id==id);if(!e)return;
    du plus gros groupe (son adversaire, le dernier de ce groupe, change de groupe) : les groupes restent équilibrés. L'organisateur peut choisir. */
 function desPlan(c,id){if(!c.g.length||(c.p2||[]).length||c.g.some(g=>g.m.some(m=>m.done&&!m.bye))||c.ent.filter(e=>!e.out).length<3)return{ok:0};
  const gi=c.g.findIndex(g=>g.m.slice(0,4).some(m=>m.a==id||m.b==id));if(gi<0)return{ok:0};
- const g=c.g[gi],mi=g.m.slice(0,4).findIndex(m=>m.a==id||m.b==id),m=g.m[mi],vs=m.a==id?'a':'b',P0=m[vs=='a'?'b':'a'],ent=x=>c.ent.find(e=>e.id==x),en=x=>names(ent(x)),rk=x=>{const e=ent(x);return e?(e.nw?'New':'#'+e.r):''},
+ const g=c.g[gi],mi=g.m.slice(0,4).findIndex(m=>m.a==id||m.b==id),m=g.m[mi],vs=m.a==id?'a':'b',P0=m[vs=='a'?'b':'a'],ent=x=>c.ent.find(e=>e.id==x),en=x=>names(ent(x)),rk=x=>{const e=ent(x);return e?(rkE(e)):''},
   GN=i=>'groupe '+String.fromCharCode(65+i),me=en(id),sz=c.g.map((h,i)=>h.m.slice(0,4).reduce((s,x)=>s+(x.a!=null)+(x.b!=null),0)-(i==gi?1:0)),op=[];
  const mx=c.g.length>1?Math.max(...sz.filter((_,i)=>i!=gi)):0,big=c.g.length>1&&mx-sz[gi]>=2;
  if(P0!=null){op.push({B:P0,mv:null,gb:gi,r:ent(P0).r,lab:en(P0)+' ('+rk(P0)+')',cq:'Personne ne change de place'+(c.g.length>1?' : le '+GN(gi)+' reste à '+sz[gi]+' joueurs':'')+'.',t:en(P0)+' ('+rk(P0)+') : personne ne change de place'});
@@ -915,7 +930,7 @@ const snakeG=(n,G)=>{const out=[];for(let i=0;i<n;i++){const r=Math.floor(i/G),p
 const draw=a=>{const x=a.slice();for(let i=x.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[x[i],x[j]]=[x[j],x[i]]}return x};/* tirage au sort */
 function genC(){const c=C(),keep=c.ent.filter(e=>!e.out);if(keep.length<2)return msg('Il faut au moins 2 inscrits.');if(keep.length>64)return msg('64 inscrits au maximum par tableau (8 groupes de 8) : il y en a '+keep.length+'.');snap();c.ent=keep;
  const rk=c.ent.filter(e=>!e.nw).sort((a,b)=>a.r-b.r),nw=draw(c.ent.filter(e=>e.nw)),N=c.ent.length;/* [New] tirés au sort, placés à la suite des classés */
- rk.forEach((e,i)=>e.r=i+1);nw.forEach((e,i)=>e.r=rk.length+i+1);c.ent.forEach(e=>{e.r0=e.r;e.n0=e.nw?1:0;delete e.late;delete e.at;delete e.rp});
+ rk.forEach((e,i)=>e.r=i+1);nw.forEach((e,i)=>e.r=rk.length+i+1);c.ent.forEach(e=>{e.r0=e.r;e.n0=e.nw?1:0;delete e.late;delete e.at;delete e.rp;if(e.nw)e.eq=1;else delete e.eq});c.eqv=1;
  const ng=Math.ceil(N/8),sl=snakeSl(ng,8,[...rk,...nw].map(e=>e.id),rk.length);
  c.g=sl.map(s=>{const g={m:[[0,7],[4,3],[2,5],[6,1]].map(([x,y])=>({a:s[x],b:s[y]})).concat([['W0','W1'],['W2','W3'],['L0','L1'],['L2','L3'],['W4','W5'],['L4','L5'],['W6','W7'],['L6','L7']].map(([a,b])=>({a,b})))};auto(g);return g});c.p2=[];c.final=0;c.rep=[];delete c.des;delete c.wa;
  FO.ins=false;save();R();msg(P1N(c)+' générée : '+ng+' groupe'+(ng>1?'s':'')+'.')}
@@ -945,8 +960,8 @@ function winC(gi,mi,w,ff,pp,ab,tvw){const L0=pp?C().p2:C().g,g=L0&&L0[gi],m=g&&g
  if(need(pp,g)&&!sc)return msg('Score exact obligatoire (poule de la phase de classement).');if(!w)return;
  snap();m.at=S.seq=(S.seq||0)+1;if(r){m.S=r;m.X=pts(sc)}
  const A=rs(g,m.a),B=rs(g,m.b),W=w=='a'?A:B,L=w=='a'?B:A;m.done=1;m.w=W;m.l=L;m.sc=need(pp,g)?sc:'';m.ff=ff&&!ab?1:0;m.ab=ab?1:0;if(tvw)m.tv=tvw;
- const eA=E(A),eB=E(B);m.pa=eA.nw?'New':eA.r;m.pb=eB.nw?'New':eB.r;const x=E(W),y=E(L);if(x.r>y.r){const a=y.r,b=x.r;C().ent.forEach(e=>{if(e.r>=a&&e.r<b)e.r++});x.r=a}/* vol de rang avec décalage des rangs intermédiaires */
- x.nw=y.nw=false;m.qa=eA.r;m.qb=eB.r;auto(g);const rc=reclass(C(),g,pp);chkFinal();save();R();if(rc)msg(g.rr?'Poule terminée : rangs reclassés dans l\'ordre de la poule.':'Tableau terminé : rangs reclassés dans l\'ordre des places.')}
+ const eA=E(A),eB=E(B);m.pa=eqV(C(),eA);m.pb=eqV(C(),eB);const x=E(W),y=E(L);if(x.r>y.r){const a=y.r,b=x.r;C().ent.forEach(e=>{if(e.r>=a&&e.r<b)e.r++});x.r=a}/* vol de rang avec décalage des rangs intermédiaires */
+ if(!pp)eqWin(C(),x);x.nw=y.nw=false;m.qa=eqV(C(),eA);m.qb=eqV(C(),eB);auto(g);const rc=reclass(C(),g,pp);chkFinal();save();R();if(rc)msg(g.rr?'Poule terminée : rangs reclassés dans l\'ordre de la poule.':'Tableau terminé : rangs reclassés dans l\'ordre des places.')}
 const pts=s=>s.split(/\s*,\s*/).reduce((t,x)=>{const[m,n]=x.split('-');return[t[0]+ +m,t[1]+ +n]},[0,0]);
 const treePos=g=>[8,9,10,11].flatMap(k=>[g.m[k].w,g.m[k].l]).filter(Boolean);
 /* classement d'une poule de la phase de classement : 1. victoires, puis les départages dans l'ordre réglé dans Paramètres de jeu (par défaut : confrontation directe si l'égalité est à deux,
@@ -993,7 +1008,7 @@ const p2How=ng=>ng==2?'Niveaux : places 1 à 4 de chaque groupe ensemble, puis p
 /* ordre des matchs d'une poule (méthode du cercle) : chacun joue à son tour, mais l'ordre reste libre */
 const rrP=n=>{const a=[...Array(n).keys()];if(n%2)a.push(-1);const k=a.length,P=[];for(let r=0;r<k-1;r++){for(let i=0;i<k/2;i++){const x=a[i],y=a[k-1-i];if(x>=0&&y>=0)P.push(x<y?[x,y,r]:[y,x,r])}a.splice(1,0,a.pop())}return P};/* [joueur, joueur, ronde] */
 function genP2(){const c=C(),ng=c.g.length;if(ng<2)return;if(ng>8)return msg('La phase de classement est prévue jusqu\'à 64 inscrits (8 groupes).');
- if(!c.g.every(g=>g.m.every(m=>m.done)))return msg('Termine tous les matchs de la phase de positionnement.');snap();
+ if(!c.g.every(g=>g.m.every(m=>m.done)))return msg('Termine tous les matchs de la phase de positionnement.');snap();eqRes(c);
  const P=c.g.map(g=>treePos(g).filter(i=>E(i))),LV=p2Lv(P,i=>E(i).r);
  const byR=ids=>[...ids].sort((a,b)=>E(a).r-E(b).r),
  rr=(name,ids,t3)=>{const s=byR(ids);return{name,ids:s,rr:1,sc:1,...(t3?{t3:1}:{}),m:rrP(s.length).map(([x,y,r])=>({a:s[x],b:s[y],t:t3?4+r:4}))}},/* triangulaire : une ronde par tour (4, 5, 6) */
@@ -1022,7 +1037,7 @@ function chRep(k,edit){const o=S.ch[k],cc=S.cc,c=JSON.parse(JSON.stringify(o));i
   for(const e of late){if(e.rp){c.g.forEach(g=>{g.m.slice(0,4).forEach(m=>{if(m.a==e.id)m.a=e.rp;if(m.b==e.id)m.b=e.rp});if(g.sub)Object.keys(g.sub).forEach(x=>{if(g.sub[x]==e.id){if(x==e.rp)delete g.sub[x];else g.sub[x]=e.rp}})})}
    else{let sl=null;c.g.forEach((g,gi)=>g.m.slice(0,4).forEach((m,mi)=>{if(m.a==e.id)sl={gi,mi,n:'a'};if(m.b==e.id)sl={gi,mi,n:'b'}}));if(!sl)return{ok:0,why:'retardataire'};c.g[sl.gi].m[sl.mi][sl.n]=null;e._sl=sl}
    ev.push({t:e.at,e})}
-  c.ent=c.ent.filter(e=>!e.late);c.ent.forEach(e=>{e.r=e.r0;e.nw=e.n0!=null?!!e.n0:!e.h});
+  c.ent=c.ent.filter(e=>!e.late);c.ent.forEach(e=>{e.r=e.r0;e.nw=e.n0!=null?!!e.n0:!e.h;if(c.eqv&&e.nw)e.eq=1;else delete e.eq});
   /* résultats saisis, remis à zéro */
   const K=['w','l','sc','S','X','ff','ab','tv','at'];let mx1=0;
   for(const x of G)x.g.m.forEach((m,mi)=>{if(m.done&&!m.bye){if(!m.at)throw'ancien';const r={};K.forEach(f=>{if(m[f]!==undefined)r[f]=m[f]});ev.push({t:m.at,x,mi,r});if(!x.pp)mx1=Math.max(mx1,m.at)}
@@ -1031,14 +1046,14 @@ function chRep(k,edit){const o=S.ch[k],cc=S.cc,c=JSON.parse(JSON.stringify(o));i
   if((c.p2||[]).length)ev.push({t:c.p2at||mx1+.5,p2:1});c.final=0;
   ev.sort((a,b)=>a.t-b.t);let n=0;
   for(const v of ev){
-   if(v.e){const e=v.e,h=e.h,r=e.h?1+c.ent.filter(x=>!x.nw&&x.h&&x.h<h).length:c.ent.length+1;c.ent.forEach(x=>{if(x.r>=r)x.r++});e.r=e.r0=r;e.nw=!e.h;c.ent.push(e);
+   if(v.e){const e=v.e,h=e.h,r=e.h?1+c.ent.filter(x=>!x.nw&&x.h&&x.h<h).length:c.ent.length+1;c.ent.forEach(x=>{if(x.r>=r)x.r++});e.r=e.r0=r;e.nw=!e.h;if(c.eqv&&e.nw)e.eq=1;else delete e.eq;c.ent.push(e);
     if(e.rp){const eid=e.rp,g=c.g.find(g=>g.m.slice(0,4).some(m=>m.a==eid||m.b==eid)||Object.values(g.sub||{}).includes(eid));if(!g)return{ok:0,why:'remplacement'};
      g.m.slice(0,4).forEach(m=>{if(m.a==eid||m.b==eid){if(m.done&&!m.bye){(g.sub=g.sub||{})[eid]=e.id}else{if(m.a==eid)m.a=e.id;if(m.b==eid)m.b=e.id}}});Object.keys(g.sub||{}).forEach(x=>{if(g.sub[x]==eid)g.sub[x]=e.id});rst(g);auto(g)}
     else{const g=c.g[e._sl.gi],m=g.m[e._sl.mi];m[e._sl.n]=e.id;m.done=0;m.bye=0;delete m.w;delete m.l;rst(g);auto(g)}delete e._sl;continue}
-   if(v.p2){p2Blk(c);continue}
+   if(v.p2){eqRes(c);p2Blk(c);continue}
    const g=v.x.g,m=g.m[v.mi],A=rs(g,m.a),B=rs(g,m.b);if(A==null||B==null||m.done||!((v.r.w==A&&v.r.l==B)||(v.r.w==B&&v.r.l==A)))return{ok:0,why:'ordre',m:v.mi,pp:v.x.pp,gi:v.x.gi};
-   Object.assign(m,v.r);m.done=1;const eA=E(A),eB=E(B);m.pa=eA.nw?'New':eA.r;m.pb=eB.nw?'New':eB.r;const x=E(m.w),y=E(m.l);
-   if(x.r>y.r){const a=y.r,b=x.r;c.ent.forEach(e=>{if(e.r>=a&&e.r<b)e.r++});x.r=a}x.nw=y.nw=false;m.qa=eA.r;m.qb=eB.r;auto(g);reclass(c,g,v.x.pp);n++}
+   Object.assign(m,v.r);m.done=1;const eA=E(A),eB=E(B);m.pa=eqV(c,eA);m.pb=eqV(c,eB);const x=E(m.w),y=E(m.l);
+   if(x.r>y.r){const a=y.r,b=x.r;c.ent.forEach(e=>{if(e.r>=a&&e.r<b)e.r++});x.r=a}if(!v.x.pp)eqWin(c,x);x.nw=y.nw=false;m.qa=eqV(c,eA);m.qb=eqV(c,eB);auto(g);reclass(c,g,v.x.pp);n++}
   if(c.g.length&&done2(c))c.final=1;c.g.forEach(g=>{if(g.sub&&!Object.keys(g.sub).length)delete g.sub});
   return{ok:1,c,n,same:canon(c)==canon(o)}}
  catch(x){return{ok:0,why:String(x)}}finally{S.ch[k]=o;S.cc=cc}}
@@ -1118,7 +1133,7 @@ function chkIds(ids,skip){const k=CATS[S.cc],c=C();if(ids.some(i=>!i)||ids[1]==i
  if(c.ent.some(e=>e.id!=skip&&!e.out&&ids.some(i=>e.ids.includes(i))))return'Déjà inscrit dans ce tableau.';return''}
 function mkE(c,ids,hv,fn){const key=ids.slice().sort().join('-'),h=fn?null:(hv?+hv:((((S.lad||{})[S.cc]||[]).find(x=>x.k==key)||{}).rank||null)),nw=!h;let r;
  if(nw)r=c.ent.length+1;else{r=1+c.ent.filter(e=>!e.nw&&e.h&&e.h<h).length;c.ent.forEach(e=>{if(e.r>=r)e.r++})}
- const e={id:S.nid++,ids,nw,h,r,r0:r,late:1,at:S.seq=(S.seq||0)+1};c.ent.push(e);return e}
+ const e={id:S.nid++,ids,nw,h,r,r0:r,late:1,at:S.seq=(S.seq||0)+1};if(nw&&c.eqv&&!(c.p2||[]).length)e.eq=1;c.ent.push(e);return e}
 /* places vacantes du Tour 1 (un joueur qualifié d'office en face), dans les groupes où le Tour 2 n'a pas commencé ;
    la 1re = la place automatique (face au bye au rang le plus bas), puis par groupe et par rang */
 function lateSlots(c){if(!c.g.length||(c.p2||[]).length||!inT1())return[];const L=[];
@@ -1144,7 +1159,7 @@ function ltAuto(){LT={k:S.cc,p1:LT.p1,p2:LT.p2,h:LT.h};ltR()}
 function ltR(){const w=$('ltw');if(w)w.innerHTML=ltW(C())}
 function ltW(c){const pl=ltPlan(c);if(!pl)return'';const dbl=CATS[S.cc][1]==2,G=ltGs(c),L=x=>String.fromCharCode(65+x),
   nw=[LT.p1,LT.p2].filter(Boolean).map(i=>sn(+i)),newN=nw.length?nw.join(' / '):dbl?'La nouvelle paire':'Le retardataire',
-  rk=id=>{const e=E(id);return e?(e.nw?'New':'#'+e.r):''},nmL=id=>E(id).ids.map(i=>`<span>${esc(sn(i))}</span>`).join(''),
+  rk=id=>{const e=E(id);return e?(rkE(e)):''},nmL=id=>E(id).ids.map(i=>`<span>${esc(sn(i))}</span>`).join(''),
   who=id=>esc(names(E(id))),mv=pl.mv,
   card=(id,cls,tag,act,dis)=>`<button type="button" class="ltp ${cls}"${act?` onclick="${act}"`:''}${dis?' disabled title="Match déjà joué : on ne peut plus le changer"':''} aria-label="${act?'Choisir '+who(id)+' comme adversaire':who(id)}"${cls=='opp'?' aria-pressed="true"':''}><b>${rk(id)}</b><span>${tag?`<em>${tag}</em>`:''}${nmL(id)}</span></button>`,
   side=(gi,mi,sd)=>{const m=c.g[gi].m[mi],x=m[sd],k=gi+'_'+mi+'_'+sd,os=sd=='a'?'b':'a',y=m[os],played=m.done&&!m.bye;
@@ -1754,8 +1769,8 @@ function pline(c,g,m,side,o){const x=side?m.b:m.a,v=rs(g,x);
  if(v===undefined)return`<div class="pl tbd"><span class="ck0"></span><span class="nm">${typeof x=='string'?(x[0]=='W'?'Vainqueur M':'Perdant M')+(+x.slice(1)+1):'À venir'}</span></div>`;
  if(v===null)return`<div class="pl bye"><span class="ck0"></span><span class="nm">Bye (place vacante)</span></div>`;
  const e=entOf(c,v);if(!e)return`<div class="pl tbd"><span class="ck0"></span><span class="nm">?</span></div>`;
- const real=m.done&&!m.bye,p0=side?m.pb:m.pa,pl=real&&p0!==undefined,b=pl?p0:(e.nw?'New':e.r),q=pl?(side?m.qb:m.qa):b;
- let rk=b==='New'?'New':'#'+b;if(q!==b){const up=b==='New'||q<b;rk+=` → <b class="${up?'up':'dn'}">#${q} ${up?'▲':'▼'}</b>`}
+ const real=m.done&&!m.bye,p0=side?m.pb:m.pa,pl=real&&p0!==undefined,b=pl?p0:eqV(c,e),q=pl?(side?m.qb:m.qa):b;
+ let rk=rkTx(b);if(q!==b){const up=rkNx(q)<rkNx(b);rk+=` → <b class="${up?'up':'dn'}">${rkTx(q)} ${up?'▲':'▼'}</b>`}
  const win=real&&m.w==v,lose=real&&m.l==v,n=esc(names(e));
  const ck=o.ro?`<span class="cb${win?' on':''}"></span>`:`<input type="checkbox" class="ck"${win?' checked':''}${o.can?` onclick="winC(${o.gi},${o.mi},'${jsq(side?'b':'a')}',0,${o.pp})" title="Cocher le vainqueur"`:' disabled'} aria-label="${n} gagne">`;
  return`<div class="pl${win?' win':''}${lose?' lose':''}">${ck}<span class="nm" title="${n}">${n}</span><span class="rk">${rk}</span></div>`}
@@ -1793,11 +1808,11 @@ function sheetsR(c,ro){let h='';
  (c.p2||[]).forEach((p,gi)=>{const l=lvlI(p),nL=nLv(c.p2),LV=lvlSet(nL)[l]||lvlSet(8)[7],col=LV.c,b=c.p2.slice(0,gi).reduce((a,x)=>a+x.ids.length,0);
   h+=sheet((ro?'r':'')+'p'+gi,'Groupe '+esc(LV.n)+(p.sub?' · arbre '+p.sub:''),`Phase de classement · niveau ${l+1} sur ${nL}${p.sub?' (2 arbres équilibrés au même niveau)':''}${p.blk?' · rangs '+p.blk[0]+' à '+p.blk[1]:''} · ${p.rr?(p.t3?(p.ids.length==3?'triangulaire':p.ids.length==2?'match unique':'poule de '+p.ids.length)+' (un match par tour)':'poule de '+p.ids.length+' (tout le monde se rencontre)'):'arbre de niveau'+(p.ids.length<8?' à '+p.ids.length+' (avec byes)':'')}`,col,onCol(col),progress(p),p.rr?poolSheet(c,p,gi,ro):treeSheet(c,p,gi,1,ro))});
  return h}
-const rankList=c=>`<div class="rank-list">${[...c.ent].sort((a,b)=>a.r-b.r).map(e=>{const d=(e.r0||e.r)-e.r;return`<div><b>${e.r}</b><span class="nm" title="${esc(names(e))}">${esc(names(e))}${e.out?' <span class="m">(remplacé)</span>':''}</span><span class="mv ${d>0?'up':d<0?'dn':''}">${d>0?'▲ '+d:d<0?'▼ '+(-d):''}</span></div>`}).join('')}</div>`;
+const rankList=c=>{const t=eqTop(c),q=e=>t!=null&&e.eq&&!e.out;return`<div class="rank-list">${[...c.ent].sort((a,b)=>(q(a)?t:a.r)-(q(b)?t:b.r)||(q(a)&&q(b)?names(a).localeCompare(names(b)):a.r-b.r)).map(e=>{const d=q(e)?0:(e.r0||e.r)-e.r;return`<div><b>${q(e)?'='+t:e.r}</b><span class="nm" title="${esc(names(e))}">${esc(names(e))}${e.out?' <span class="m">(remplacé)</span>':''}</span><span class="mv ${d>0?'up':d<0?'dn':''}">${d>0?'▲ '+d:d<0?'▼ '+(-d):''}</span></div>`}).join('')}</div>${t!=null&&c.ent.some(q)?`<p class="m">=${t} : ${t}e ex æquo (sans rang historique et pas encore de victoire) ; départagés à la fin de la phase de positionnement, par leur place dans leur groupe, puis par le tirage au sort.</p>`:''}`};
 /* matchs à jouer en liste, avec de grands boutons (ouvert par défaut sur téléphone) : mêmes actions que les cases de l'arbre */
 const qeNm=(c,pp,gi)=>{if(!pp)return'Groupe '+String.fromCharCode(65+gi);const p=c.p2[gi],LV=lvlSet(nLv(c.p2))[lvlI(p)]||lvlSet(8)[7];return'Groupe '+LV.n+(p.sub?' · arbre '+p.sub:'')};
 function qeR(c){const L=[],D=[];[[c.g,0],[c.p2,1]].forEach(([G,pp])=>(G||[]).forEach((g,gi)=>g.m.forEach((m,mi)=>{const A=rs(g,m.a),B=rs(g,m.b);if(!m.done&&A!=null&&B!=null)L.push({pp,gi,mi,g,m,A,B});else if(m.done&&!m.bye)D.push({pp,gi,mi,g,m})})));
- const rk=e=>e.nw?'New':'#'+e.r,tr=(x)=>x.g.rr?(x.g.t3&&x.m.t?'Tour '+x.m.t:'Tours 4 à 6'):'Tour '+((x.pp?4:1)+(x.mi>>2));let cur='',h='';
+ const rk=e=>rkE(e),tr=(x)=>x.g.rr?(x.g.t3&&x.m.t?'Tour '+x.m.t:'Tours 4 à 6'):'Tour '+((x.pp?4:1)+(x.mi>>2));let cur='',h='';
  L.forEach(x=>{const{pp,gi,mi,g}=x,eA=entOf(c,x.A),eB=entOf(c,x.B);if(!eA||!eB)return;const na=esc(names(eA)),nb=esc(names(eB)),nm=qeNm(c,pp,gi),id=(pp?'p':'')+gi+'_'+mi;
   if(nm!=cur){cur=nm;h+=`<p class="qeg">${esc(nm)}</p>`}
   h+=`<div class="qe"><div class="qeh"><b>M${mi+1}</b><span class="m">${tr(x)}</span><span class="qea"><button class="btn sm" onclick="waOpen(${pp},${gi},${mi})" aria-label="Message WhatsApp du match M${mi+1}" title="Message WhatsApp">💬</button><button class="btn sm" onclick="openAct(${pp},${gi},${mi})" aria-label="Forfait, abandon ou tapis vert" title="Forfait, abandon, tapis vert">⋯</button></span></div>
@@ -1850,8 +1865,8 @@ function chSt(k){const c=S.ch[k]||{ent:[],g:[]},pe=per(k),td=iso(new Date()),act
  const cur=pe.findIndex(p=>td<=p.b);o.cur=cur;o.pre=pe.length&&td<pe[0].a;o.over=pe.length&&cur<0;
  o.stage=!o.N?'Pas d\'inscrit':!c.g.length?'Inscriptions':c.final?'Terminé':(c.p2||[]).length?'Phase de classement':c.g.length==1?'Groupe unique':P1N(c);
  return o}
-const rkN=(c,id)=>{const e=entOf(c,id);return e?esc(names(e))+' ('+(e.nw?'New':'#'+e.r)+')':'?'};
-function waTxt(k){const x=chSt(k),R=x.rd.filter(z=>x.cur<0||z.t<=x.cur+1).sort((a,b)=>a.t-b.t),pe=x.pe,cur=x.cur,nm=e=>{const v=entOf(x.c,e);return v?names(v)+' ('+(v.nw?'New':'#'+v.r)+')':'?'};
+const rkN=(c,id)=>{const e=entOf(c,id);return e?esc(names(e))+' ('+(rkE(e))+')':'?'};
+function waTxt(k){const x=chSt(k),R=x.rd.filter(z=>x.cur<0||z.t<=x.cur+1).sort((a,b)=>a.t-b.t),pe=x.pe,cur=x.cur,nm=e=>{const v=entOf(x.c,e);return v?names(v)+' ('+(rkE(v))+')':'?'};
  return`🏸 ${clubName()} · Challenge interne · ${CATS[k][0]}\n${cur>=0?`Tour ${cur+1} jusqu'au ${fr(pe[cur].b)}`:'Fin de saison'}\nMatchs à jouer :\n${R.map(z=>`• ${nm(z.A)} – ${nm(z.B)}${z.t<cur+1?' (Tour '+z.t+', en retard)':''}`).join('\n')}`}
 /* ---------- messages WhatsApp par match (Dan, 28/10/2026) : les deux joueurs, les dates, la règle du score,
    le classement de la poule s'il y a lieu et le départage au tapis vert, prêts à coller dans le groupe ---------- */
@@ -1861,7 +1876,7 @@ const waKey=z=>[z.pp?1:0,z.gi,z.mi,z.A,z.B].join('.'),
  waG=(c,pp,gi)=>{if(!pp)return c.g.length>1?'Groupe '+String.fromCharCode(65+gi):'';const p=c.p2[gi],LV=lvlSet(nLv(c.p2))[lvlI(p)]||lvlSet(8)[7];return'Groupe '+LV.n+(p.sub?' · arbre '+p.sub:'')};
 function waInfo(c,pp,gi,mi){const g=(pp?c.p2:c.g)[gi],m=g&&g.m[mi];if(!m||m.done)return null;const A=rs(g,m.a),B=rs(g,m.b);if(A==null||B==null)return null;
  const pe=per(),ts=pp?(m.t||4):(mi>>2)+1,te=pp&&g.rr&&!g.t3?Math.max(ts,pe.length||6):ts;return{g,m,A,B,ts,te,a:pe[ts-1]&&pe[ts-1].a,b:pe[te-1]&&pe[te-1].b,key:waKey({pp,gi,mi,A,B})}}
-function waMsg(c,pp,gi,mi){const x=waInfo(c,pp,gi,mi);if(!x)return'';const dbl=CATS[S.cc][1]==2,ea=E(x.A),eb=E(x.B),rk=e=>e.nw?'New':'#'+e.r,nd=need(pp,x.g),late=!!x.b&&iso(new Date())>x.b,
+function waMsg(c,pp,gi,mi){const x=waInfo(c,pp,gi,mi);if(!x)return'';const dbl=CATS[S.cc][1]==2,ea=E(x.A),eb=E(x.B),rk=e=>rkE(e),nd=need(pp,x.g),late=!!x.b&&iso(new Date())>x.b,
   q=dbl?'la paire qui':{H:'celui qui',F:'celle qui'}[CATS[S.cc][2]]||'celui ou celle qui',gl=waG(c,pp,gi),T=x.te>x.ts?`Tours ${x.ts} à ${x.te}`:`Tour ${x.ts}`;
  const L=[`🏸 *Challenge interne · ${clubName()}*`,`*${CATS[S.cc][0]}* · ${gl?gl+' · ':''}${T}`,'',
   `*${rk(ea)} ${names(ea)}*`,'🆚',`*${rk(eb)} ${names(eb)}*`,''];
@@ -1913,7 +1928,7 @@ function rlTV(k,dbl){const q=dbl?'la paire qui':{H:'celui qui',F:'celle qui'}[CA
  return[`⚖️ *Rappel : un match pas joué à la date limite se décide au tapis vert.* La victoire va, dans l'ordre, à :`,`1. ${q} a proposé le plus de créneaux et a fait le plus d'efforts pour s'arranger`,`2. ${q} a joué le plus de matchs réels depuis le début (un bye compte, un forfait non)`,`3. ${q} a le meilleur rang`,`4. un tirage au sort, seulement entre deux New à égalité`]}
 const rlPoule=c=>(c.p2||[]).some(p=>p.rr)?`📊 *Classement des ${(c.p2||[]).every(p=>!p.rr||p.t3)?'triangulaires':'poules'}* : 1. victoires · `+tbL().map((k,i)=>`${i+2}. ${TBN[k]}${k=='h2h'?' (égalité à deux)':''}`).join(' · '):'';
 function rlMsg(k){const x=chSt(k),c=x.c,pe=x.pe,cur=x.cur;if(!c.g.length||c.final||cur==null||cur<0||!pe[cur])return'';const dbl=CATS[k][1]==2,p=pe[cur],T=x.T[cur]||{d:0,n:0};
- const rk=id=>{const e=entOf(c,id);return e?(e.nw?'New':'#'+e.r)+' '+names(e):'?'},now=x.rd.filter(z=>z.t==cur+1),late=x.rd.filter(z=>z.t<cur+1),gl=z=>{const o=S.cc;S.cc=k;try{return waG(c,z.pp,z.gi)}finally{S.cc=o}};
+ const rk=id=>{const e=entOf(c,id);return e?(rkE(e))+' '+names(e):'?'},now=x.rd.filter(z=>z.t==cur+1),late=x.rd.filter(z=>z.t<cur+1),gl=z=>{const o=S.cc;S.cc=k;try{return waG(c,z.pp,z.gi)}finally{S.cc=o}};
  const ph=c.g.length>1?(cur<3?' · phase de positionnement':' · phase de classement'):'';
  const L=[`🏸 *Challenge interne · ${clubName()}*`,`*${CATS[k][0]}* · relance du ${frW(tdy())}`,'',(x.pre?`📅 *Tour 1*${ph} du ${fr(p.a)} au *${fr(p.b)}* : début dans ${rlDays(p.a)} jour${rlDays(p.a)>1?'s':''}`:`📅 *Tour ${cur+1}*${ph} jusqu'au *${fr(p.b)}* : ${rlD(rlDays(p.b))}`)];
  if(T.n)L.push(`✅ ${T.d} match${T.d>1?'s':''} joué${T.d>1?'s':''} sur ${T.n} pour ce tour`);
@@ -1946,7 +1961,7 @@ const rlDue=(c,z)=>{const l=rlLast(c,z),pd=pdOf(c,z),td=tdy();if(pd&&pd>=td)retu
 function pdSet(pp,gi,mi,v){const c=C(),x=waInfo(c,pp,gi,mi);if(!x)return;v=String(v||'').trim();if(v&&!/^\d{4}-\d{2}-\d{2}$/.test(v))return msg('Date incorrecte.');snap();c.pd=c.pd||{};if(v)c.pd[x.key]=v;else delete c.pd[x.key];save();R();msg(v?'Match prévu le '+fr(v)+' : pas de relance d\'ici là.':'Date prévue effacée.')}
 const pdTag=(c,z)=>{const pd=pdOf(c,z);if(!pd)return'';return pd>=tdy()?`<span class="wok">📅 prévu le ${esc(fr(pd))}</span>`:`<span class="bad">prévu le ${esc(fr(pd))} : résultat ?</span>`};
 const pdIn=(c,z,id)=>`<label class="row m pdl">Prévu le <input type="date" id="${id}" value="${esc(pdOf(c,z))}" onchange="pdSet(${z.pp?1:0},${z.gi},${z.mi},this.value)" aria-label="Date prévue du match"></label>`;
-function rlmMsg(c,pp,gi,mi){const x=waInfo(c,pp,gi,mi);if(!x)return'';const dbl=CATS[S.cc][1]==2,ea=E(x.A),eb=E(x.B),rk=e=>e.nw?'New':'#'+e.r,nd=need(pp,x.g),gl=waG(c,pp,gi),T=x.te>x.ts?`Tours ${x.ts} à ${x.te}`:`Tour ${x.ts}`,d=x.b?rlDays(x.b):null;
+function rlmMsg(c,pp,gi,mi){const x=waInfo(c,pp,gi,mi);if(!x)return'';const dbl=CATS[S.cc][1]==2,ea=E(x.A),eb=E(x.B),rk=e=>rkE(e),nd=need(pp,x.g),gl=waG(c,pp,gi),T=x.te>x.ts?`Tours ${x.ts} à ${x.te}`:`Tour ${x.ts}`,d=x.b?rlDays(x.b):null;
  const L=[`⏰ *Relance · Challenge interne · ${clubName()}*`,`*${CATS[S.cc][0]}* · ${gl?gl+' · ':''}${T}`,'',`*${rk(ea)} ${names(ea)}*`,'🆚',`*${rk(eb)} ${names(eb)}*`,''];
  const pd=(c.pd||{})[x.key];if(pd)L.push(pd>=tdy()?`🗓️ Match prévu le *${fr(pd)}* : pensez à m'envoyer le résultat.`:`🗓️ Le match était prévu le *${fr(pd)}* : s'il est joué, envoyez-moi le résultat ; sinon, donnez une nouvelle date.`);
  if(x.b)L.push(d<0?`⚠️ *Date limite dépassée* (${fr(x.b)}, il y a ${-d} jour${-d>1?'s':''}) : à jouer au plus vite, sinon tapis vert.`:`📅 Date limite : *${fr(x.b)}* → ${rlD(d)}`);
@@ -2085,7 +2100,7 @@ function chR(){const c=C(),k=CATS[S.cc],t=k[2],s1=t=='M'?'F':t=='*'?'':t,s2=t=='
   ${ng?'<p class="m">Les groupes sont générés : pour ajouter quelqu\'un, utilise « Retardataire » (Tour 1). Tant qu\'aucun match n\'est joué, le ✕ d\'un inscrit qui se désiste le retire en gardant le tirage : un joueur (par défaut le mieux classé de son groupe, ou du plus gros groupe pour garder des groupes équilibrés) est qualifié d\'office au Tour 1.'+((c.des||[]).length?' <b>Désistement'+(c.des.length>1?'s':'')+' après le tirage :</b> '+c.des.map(esc).join(', ')+'.':'')+'</p>':`<div class="row"><select id="e1" aria-label="${k[1]==2?'Premier joueur':'Joueur'}"><option value="">${t=='M'?'Joueuse…':k[1]==2?'Premier joueur…':'Joueur…'}</option>${opts(s1,ex,PSEL[0])}</select>${k[1]==2?`<select id="e2" aria-label="Partenaire"><option value="">${t=='M'?'Joueur…':'Partenaire…'}</option>${opts(s2,ex,PSEL[1])}</select>`:''}<input id="eh" type="number" min="1" placeholder="Rang historique (vide = auto)" style="width:250px"><button class="btn pri" onclick="addE()">${k[1]==2?'Inscrire la paire':'Inscrire'}</button></div>
   <p class="m">Le rang se met tout seul : rang historique du tableau s'il existe, sinon [New] en bas par ordre alphabétique des prénoms. Un moins bien classé qui gagne prend la place du perdant, les rangs intermédiaires reculent d'une place.</p>
   ${k[1]==2?(()=>{const so=(c.solo||[]).filter(i=>P(i)),exS=new Set([...ex,...so]),pl=soloPlan(c);return`<h4>Joueurs seuls${so.length?' · '+so.length:''}</h4><div class="row"><select id="e3" aria-label="Joueur sans partenaire"><option value="">Joueur sans partenaire…</option>${opts(t=='M'?'':s1,exS,PSEL.length==1&&!so.includes(PSEL[0])?PSEL[0]:0)}</select><button class="btn" onclick="soloAdd()">Inscrire seul</button>${pl.np?`<button class="btn pri" onclick="soloDrawAsk()">Tirer au sort les paires</button>`:''}</div>${so.length?`<div class="ents">${so.map(i=>`<div class="ent"><span class="rb">Seul</span><span class="nm">${esc(sn(i))}${t=='M'?' <span class="m">('+(P(i).sexe=='F'?'F':'H')+')</span>':''}</span><button class="x" onclick="soloRm(${i})" aria-label="Retirer ${esc(sn(i))}" title="Retirer">✕</button></div>`).join('')}</div>`:''}<p class="m">À la clôture des inscriptions, « Tirer au sort les paires » associe les joueurs seuls au hasard${t=='M'?' (une femme et un homme)':''}. Celui qui reste sans partenaire reste dans cette liste : associe-le à un nouveau venu avec « Former la paire », ou retire-le.</p>`})():''}`}
-  ${ents.length?`<div class="ents">${ents.map(e=>`<div class="ent"><span class="rb${e.nw?' new':''}">${e.nw?'New':'#'+e.r}</span><span class="nm" title="${esc(names(e))}">${esc(names(e))}${e.out?' <span class="m">(remplacé)</span>':''}</span>${e.out?'':`<button class="x" onclick="rmAsk(${e.id})" aria-label="Supprimer ${esc(names(e))}" title="Supprimer cette inscription">✕</button>`}</div>`).join('')}</div>`:'<p class="m">Aucun inscrit pour le moment dans ce tableau.</p>'}`);
+  ${ents.length?`<div class="ents">${ents.map(e=>`<div class="ent"><span class="rb${e.nw?' new':''}">${rkE(e)}</span><span class="nm" title="${esc(names(e))}">${esc(names(e))}${e.out?' <span class="m">(remplacé)</span>':''}</span>${e.out?'':`<button class="x" onclick="rmAsk(${e.id})" aria-label="Supprimer ${esc(names(e))}" title="Supprimer cette inscription">✕</button>`}</div>`).join('')}</div>`:'<p class="m">Aucun inscrit pour le moment dans ce tableau.</p>'}`);
  if(ng&&!np)h+=fold('t1','Tour 1 : retardataire et remplacement','',false,t1B(c));
  if(ng){const rm=rlMsg(S.cc);if(rm){const RL=rlList(c),nd=RL.filter(z=>rlDue(c,z)).length;h+=fold('rl','📣 Relances WhatsApp de la semaine',RL.length?(nd?nd+' match'+(nd>1?'s':'')+' à relancer':'toutes faites'):'',false,rlB(c))}
  const wl=waList(c);if(wl.length){const W=c.wa||{},n=wl.filter(z=>!W[waKey(z)]).length;h+=fold('wa','💬 Messages WhatsApp',n?n+' à envoyer':'tous copiés',false,waB(c))}
@@ -2136,7 +2151,7 @@ function pfCh(id){const B=[];
   const ord=b.ms.filter(m=>m.ty!='bye'),bys=b.ms.filter(m=>m.ty=='bye'),L2=[],used=new Set;ord.forEach(m=>{bys.filter(y=>!used.has(y)&&y.t<=m.t).forEach(y=>{used.add(y);L2.push(y)});L2.push(m)});bys.filter(y=>!used.has(y)).forEach(y=>L2.push(y));
   const rows=L2.map(m=>{if(m.ty=='bye')return`<tr><td>T${m.t}</td><td class="m">—</td><td><span class="m">Qualifié d'office (bye)</span></td><td></td><td></td></tr>`;const me=same(m.a,b.r.ids)?'a':'b',op=me=='a'?m.b:m.a,won=m.w==me,p0=me=='a'?m.pa:m.pb,q0=me=='a'?m.qa:m.qb,opn=op.map(sn).join(' / '),ty={tv:'tapis vert',ab:'abandon',ff:'forfait'}[m.ty]||'';
    if(typeof p0=='number'&&p0!=prev)pts.push({r:p0,l:'Glissement avant le tour '+m.t+' : #'+p0});if(typeof q0=='number'){pts.push({r:q0,k:won?'w':'l',l:'Tour '+m.t+' : '+(won?'victoire':'défaite')+' contre '+opn+' → #'+q0});prev=q0}
-   return`<tr><td>T${m.t}</td><td>${esc(opn)}</td><td><span class="${won?'mv up':'mv dn'}">${won?'Victoire':'Défaite'}</span>${ty?' <span class="m">('+ty+')</span>':''}</td><td>${esc(m.sc||'')}</td><td>${p0=='New'?'New':typeof p0=='number'?'#'+p0:''} → ${typeof q0=='number'?'#'+q0:''}</td></tr>`}).join('');
+   return`<tr><td>T${m.t}</td><td>${esc(opn)}</td><td><span class="${won?'mv up':'mv dn'}">${won?'Victoire':'Défaite'}</span>${ty?' <span class="m">('+ty+')</span>':''}</td><td>${esc(m.sc||'')}</td><td>${rkTx(p0)} → ${rkTx(q0)}</td></tr>`}).join('');
   const fin=b.cur!=null?b.cur:b.r.r;if(fin!=prev)pts.push({r:fin,l:(b.cur!=null?'Aujourd\'hui':'Classement final')+' : #'+fin});
   const head=`${esc(b.y)} · ${CATS[b.k][0]}${b.r.ids.length>1?' avec '+esc(b.r.ids.filter(x=>x!=id).map(sn).join('')):''} : ${b.r.new?'New':'#'+b.r.r0} → #${fin}${b.r.lv?' · groupe '+esc(b.r.lv):''}${b.r.out?' · remplacé en cours de saison':''}`;
   return`<details class="fold sub"${i?'':' open'}><summary>${head}<span class="cnt">${b.r.w} V · ${b.r.l} D${b.r.f?' · '+b.r.f+' forf.':''}</span></summary><div class="fb">${b.old?'<p class="m">Détail des matchs non conservé pour cette saison (clôturée avec une version plus ancienne).</p>':`${rkSvg(pts,b.N,'Évolution du rang')}<p class="m">Rang au fil de la saison : départ, puis après chaque match (vert : victoire, rouge : défaite). Les petits points gris sont les glissements dus aux matchs des autres.</p>${rows?`<div class="tbl"><table><tr><th>Tour</th><th>Adversaire</th><th>Résultat</th><th>Score</th><th>Rang</th></tr>${rows}</table></div>`:'<p class="m">Pas encore de match joué.</p>'}`}</div></details>`};
@@ -2198,7 +2213,7 @@ const CBD=[
  {id:'heart',ic:'💓',t:'Cardiaque',ty:'hum',d:'Jouer un match en 3 sets, le dernier à 2 points d\'écart ou moins (score saisi)',v:x=>x.cnt(m=>cbSet(m)==3&&Math.abs(m.st[2][0]-m.st[2][1])<=2)},
  {id:'angel',ic:'😇',t:'Généreux',ty:'hum',d:'Perdre un match en marquant plus de points que l\'adversaire (score saisi)',v:x=>x.cnt(m=>cbSet(m)&&!m.won&&cbPts(m.st,0)>cbPts(m.st,1))},
  {id:'diesel',ic:'🚂',t:'Diesel',ty:'hum',u:'victoires de suite',S:[2,3,4,5],H:[2,6,12,20],d:'Perdre tes 2 premiers matchs, puis gagner au moins les 2 suivants',v:x=>{const P=x.P;if(P.length<4||P[0].won||P[1].won)return 0;let k=0;while(P[2+k]&&P[2+k].won)k++;return k>=2?k:0}},
- {id:'chick',ic:'🐣',t:'Bizut qui pique',ty:'hum',u:'victoires',d:'Partir [New] (sans rang historique) et battre des joueurs mieux classés que toi',v:x=>x.r.new?x.cnt(m=>m.won&&cbN(m.po)&&(m.p0=='New'||(cbN(m.p0)&&m.po<m.p0))):0},
+ {id:'chick',ic:'🐣',t:'Bizut qui pique',ty:'hum',u:'victoires',d:'Partir [New] (sans rang historique) et battre des joueurs mieux classés que toi',v:x=>x.r.new?x.cnt(m=>m.won&&cbN(m.po)&&(m.p0=='New'||rkNx(m.p0)>m.po)):0},
  {id:'multi',ic:'🎽',t:'Touche-à-tout',ty:'hum',u:'matchs',S:[1,6,10,14],H:[1,15,30,50],d:'S\'inscrire dans 3 tableaux la même saison (niveau selon le nombre de matchs joués)',sea:1,v:s=>s.nTab>=3?Math.max(1,s.n):0}
 ].map(b=>({mod:'c',u:'fois',S:CBS,H:CBH0,...b}));
 const cbOf=id=>CBD.find(b=>b.id==id),cbNeg=()=>!(S.cfg&&S.cfg.bdNeg===false),cbVis=b=>!!b&&(b.ty!='neg'||cbNeg()),cbOrd=id=>CBD.findIndex(b=>b.id==id);
@@ -2295,6 +2310,7 @@ function hlpData(){const db=S.club.cats.some(k=>CATS[k][1]==2),L=[],A=(m,q,k,a,o
   if(db)A('c','Joueur sans partenaire en double','seul partenaire paire double sans binome tirer sort','Rubrique Inscriptions › Joueurs seuls › « Inscrire seul ». À la clôture des inscriptions, « Tirer au sort les paires ».');
   A('c','Lancer le challenge (tirage des groupes)','lancer tirage groupes groupe generer debut commencer phase positionnement','À la clôture des inscriptions : « Générer la phase de positionnement » en haut du tableau.');
   A('c','Saisir un résultat','saisir resultat score gagnant vainqueur match cocher valider gagne perdu','Coche le vainqueur du match dans le tableau. Dans les poules de la phase de classement, tape le score puis « Valider ».');
+  A('c','Comment sont classés les [New] (ex æquo)','new nouveau nouveaux ex aequo egalite egal egaux rang classement perdu depart tirage','Tant qu\'un joueur sans rang historique n\'a pas gagné de match, il est ex æquo avec les autres (« =10 » : 10e ex æquo), à la suite des joueurs déjà départagés. Son premier match gagné lui donne un rang : celui du perdant s\'il était mieux classé, sinon la première place devant les ex æquo. À la fin de la phase de positionnement, les ex æquo sont départagés par leur place dans leur groupe, puis par le tirage au sort.');
   A('c','Corriger un résultat déjà saisi','corriger resultat erreur modifier score vainqueur effacer trompe','✎ sur le match joué : changer le vainqueur, passer en forfait ou abandon, ou effacer le résultat. Les rangs sont recalculés. Si un match qui en dépend est déjà joué, corrige ou efface d\'abord celui-là.');
   A('c','Forfait, abandon ou match pas joué (tapis vert)','forfait abandon absent absence blesse blessure tapis vert pas joue non joue','Bouton ⋯ du match : « Forfait de… », « … abandonne », ou Tapis vert (départage d\'après les créneaux proposés par chacun).');
   A('c','Quelqu\'un arrive après le tirage (retardataire)','retardataire retard arrive tard nouveau nouvelle inscription apres tirage ajouter rajouter',`Pendant le Tour 1 : ${T} › Retardataire. Il prend une place libre (qualifié d'office). Plus de place et plusieurs arrivants : « Nouveau groupe ».`);
@@ -2494,7 +2510,7 @@ function rgAdh(){const ff=esc(ffS('a').replace(/, /g,' ; ')),sets=SC().mode=='se
   <li><b>Le mieux classé gagne</b> : aucun rang ne change.</li>
   <li><b>Le moins bien classé gagne</b> : il prend le rang du perdant ; le perdant et tous les joueurs classés entre eux reculent d'une place.</li>
   <li><b>Forfait et tapis vert</b> comptent comme une victoire pour le vol de rang.</li>
-  <li><b>Les [New]</b> : un [New] qui bat un classé prend son rang. Entre deux [New], le vainqueur prend le meilleur des deux rangs. Après un bye, un [New] prend le rang de ce croisement.</li>
+  <li><b>Les [New] et les ex æquo</b> : un joueur sans rang historique est classé ex æquo avec les autres (« =10 » : 10e ex æquo), à la suite des joueurs déjà départagés, tant qu'il n'a pas gagné de match. Son premier match gagné lui donne un rang : celui du perdant s'il était mieux classé, sinon la première place devant les ex æquo. À la fin de la phase de positionnement, les ex æquo restants sont départagés par leur place dans leur groupe, puis par le tirage au sort : chacun a alors un rang unique.</li>
   <li><b>Fin d'un arbre ou d'une poule</b> : les rangs de ses joueurs sont redistribués dans l'ordre final. Le 1er prend le meilleur de ces rangs, le 2e le suivant, etc. : personne ne finit derrière un joueur qu'il a devancé.</li>
   <li><b>Phase de classement</b> : au lancement, le 1er niveau prend les meilleurs rangs (1 à 8 s'il compte 8 joueurs), le 2e niveau les suivants, et ainsi de suite. Le vol de rang se joue ensuite à l'intérieur du niveau : un joueur d'un niveau inférieur ne peut pas finir devant un joueur d'un niveau supérieur.</li></ul>
   <p><b>Exemple</b> : Hugo (rang 6) bat Tom (rang 4).</p>
@@ -3151,7 +3167,7 @@ const testBar=()=>{const d=TNOW();return`<div class="testbar np"><b>Appli de TES
  <div class="row"><label class="row">Simuler les résultats du tableau en cours jusqu'au tour <select id="dmt" onchange="FO.dmt=this.value">${[1,2,3,4,5,6].map(t=>`<option${t==(+FO.dmt||6)?' selected':''}>${t}</option>`).join('')}</select></label><button class="btn sm" onclick="dmPlay()">Simuler</button><button class="btn sm" onclick="dmWipe()">Repartir de zéro</button></div>
  <p class="m">Pour essayer sur une copie de tes vraies données : « Sauvegarder » dans ton appli habituelle, puis « Importer » ici.</p></details></div>`};
 /* ---------- Rendu général ---------- */
-function R(){if(CLOUD&&CWST!='ready')return cwGateR();if(CLOUD)cwHdr();TSNK='';CBC=null;const sx={};document.querySelectorAll('[data-sx]').forEach(e=>sx[e.dataset.sx]=e.scrollLeft);
+function R(){if(CLOUD&&CWST!='ready')return cwGateR();if(CLOUD)cwHdr();TSNK='';CBC=null;eqMig();const sx={};document.querySelectorAll('[data-sx]').forEach(e=>sx[e.dataset.sx]=e.scrollLeft);
  if(S.tab=='h'){S.tab='c';S.cv='hist'}if(S.tab=='r')S.tab=NOADM?'c':'x';if(!tabOk(S.tab))S.tab=(MODS.find(([k])=>tabOk(k))||[tabOk('j')||!tabOk('x')?'j':'x'])[0];
  navR();applyTheme();{const lg=$('hlogo'),hn=$('hname'),hs=$('hsub');if(lg&&lg.src!==clubLogo())lg.src=clubLogo();if(hn){hn.textContent=clubName();if(hn.classList)hn.classList.toggle('lng',clubName().length>16)}if(hs)hs.textContent=(S.club.sub||'Club Manager')+(TEST?' · TEST':'');try{document.title=(TEST?'TEST · ':'')+clubName()+' · Club Manager'}catch(e){}}
  const t=S.tab;let h='';if(t=='j')h=S.pf?pfR(S.pf):jR();else if(t=='s')h=smR();else if(t=='t')h=tnR();else if(t=='tq')h=tnP();else if(t=='v')h=chocR();else if(t=='a')h=renR();else if(t=='p')h=prR();else if(t=='q')h=srP();else if(t=='x')h=adR();else h=chX();if(CLOUD)h=tabOk(t)?cwRO(t)+h:'<div class="card" style="max-width:560px"><h3>Aucune rubrique ouverte</h3><p class="m">Ton accès à ce club ne comprend encore aucune rubrique. Demande à l\'administrateur de te donner les droits.</p></div>';

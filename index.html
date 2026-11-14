@@ -2278,7 +2278,7 @@ function cbRows(rows,ms,fin,k){const same=(x,ids)=>x.length==ids.length&&x.every
   CBD.filter(b=>!b.sea&&!b.meta&&!b.glob&&b.mod=='c').forEach(b=>{H=[];let v=0;try{v=+b.v(x)||0}catch(e){}if(v>0){o[b.id]=v;if(H.length)op[b.id]=H}});H=null;ops.push(op);return o});
  out.ops=ops;return out}
 /* matchs joués par joueur et par saison dans tous les modules (v84) : challenge (saisons L), SmashRoulette (soirées archivées et en cours), tournoi (éditions clôturées), Choc des volants (saisons) */
-function cbGlobN(L){const N={},a=(y,id,k)=>{if(!y||id==null||!k)return;const Y=N[y]=N[y]||{};Y[id]=(Y[id]||0)+k};
+function cbGlobN(L){const N={},a=(y,id,k)=>{if(!y||String(y)<CB0||id==null||!k)return;const Y=N[y]=N[y]||{};Y[id]=(Y[id]||0)+k};
  L.forEach(s=>s.rows.forEach(r=>r.ids.forEach(id=>a(s.y,id,r.n||0))));
  const sr=(d,G)=>{if(!d)return;const y=seasonOf(d);(G||[]).forEach(g=>[...(g.a||[]),...(g.b||[])].forEach(id=>a(y,id,1)))};(S.srh||[]).forEach(x=>sr(x.d,x.games));if(S.sr&&S.sr.d)sr(S.sr.d,S.games);
  (S.tna||[]).forEach(t=>{if(!t.d)return;const y=seasonOf(t.d);(t.rows||[]).forEach(r=>(r.p||[]).forEach(q=>{if(q&&q.mid!=null)a(y,q.mid,(r.w||0)+(r.l||0))}))});
@@ -2286,8 +2286,10 @@ function cbGlobN(L){const N={},a=(y,id,k)=>{if(!y||id==null||!k)return;const Y=N
  if(vo){(vo.arch||[]).forEach(js);js(vo.ss)}return N}
 /* matchs joués par chaque joueur sur chaque saison (tous tableaux) : le plus grand nombre de chaque saison (Increvable, v82) */
 function cbSeaMx(L){const N={},mx={};L.forEach(s=>s.rows.forEach(r=>r.ids.forEach(id=>{const Y=N[s.y]=N[s.y]||{};Y[id]=(Y[id]||0)+(r.n||0)})));Object.entries(N).forEach(([y,Y])=>mx[y]=Math.max(0,...Object.values(Y)));return mx}
+/* première saison des badges (Dan, 14/11/2026 : « que ça compte à partir de cette saison 2026/2027 ») : les saisons d'avant (archives, soirées, tournois, Choc) sont ignorées */
+const CB0='2026-2027';
 /* toutes les saisons : archives, puis tableaux en cours */
-function cbSeasons(){const L=[];(S.arch||[]).forEach(a=>L.push({y:a.y,k:a.c,rows:a.rows||[],ms:a.ms||null,fin:1}));
+function cbSeasons(){const L=[];(S.arch||[]).filter(a=>String(a.y||'')>=CB0).forEach(a=>L.push({y:a.y,k:a.c,rows:a.rows||[],ms:a.ms||null,fin:1}));
  Object.keys(S.ch||{}).forEach(k=>{const c=S.ch[k];if(c&&c.g&&c.g.length)L.push({y:season(),k,rows:mkRows(c),ms:chMs(c),cur:1,fin:!!c.final})});return L}
 /* badges d'un joueur : valeurs de la saison en cours (remises à zéro chaque saison) et de toutes les saisons (historique), niveaux */
 /* saison précédente d'une saison « 2026-2027 » */
@@ -2341,7 +2343,7 @@ function cbPf(id,pl){if(!modOn('c'))return'';const p=cbPl(id),srt=(a,b)=>cbOrd(a
   row=(b,v,lv,T,o,nd)=>{const B=cbOf(b),vs=o.tot?'':cbVs(B,(p.op||{})[b]);return`<li>${cbH(b,{...o,op:o.tot?null:(p.op||{})[b]})} <span class="cbpg">${prog(B,v,lv,T,o.tot)}${vs?` · <i>${esc(vs)}</i>`:''}</span>${nd?'':`<span class="m">${esc(B.d)}</span>`}</li>`},
   todoL=Object.keys(CBTY).filter(t=>t!='neg'||cbNeg()).map(t=>{const B=todo.filter(b=>b.ty==t&&!b.leg);return B.length?`<h4>${CBTY[t][0]} ${CBTY[t][1]}</h4><ul class="cbl cbtodo">${B.map(b=>`<li>${cbH(b.id,{off:1})} <span>${esc(b.d)}</span><span class="m">${b.one?'Badge unique, sans niveau':b.so?`Badge unique dans la saison (×2, ×3…) · historique : ${cbThr(b.H)}`:`${CBL[0][0]} dès ${b.S[0]} ${esc(cbU(b,b.S[0]))}, puis ${b.S.slice(1).map((t,i)=>CBL[i+1][0]+' '+t).join(', ')}${p.cur[b.id]?` · toi : ${p.cur[b.id]} ${esc(cbU(b,p.cur[b.id]))}, encore ${b.S[0]-p.cur[b.id]} pour ${CBL[0][0]}`:''}`}</span></li>`).join('')}</ul>`:''}).join('')
    +(()=>{const B=todo.filter(b=>b.leg);return B.length?`<h4>✨ Les légendaires</h4><ul class="cbl cbtodo">${B.map(b=>`<li>${cbH(b.id,{off:1})} <span>${esc(b.d)}</span></li>`).join('')}</ul>`:''})();
- return`<div class="card cbcard"><h3>Badges</h3><p class="m">Challenge (tous ses tableaux : simples, doubles, mixtes ; en double, les 2 partenaires) et 🪶 tous les modules. Attribués tout seuls par l'appli d'après les résultats, pour le plaisir : ils ne comptent pas dans le classement. Niveaux : ${CBL.map(l=>l[0]+' '+l[1]).join(', ')}. Badges ★ uniques : sans niveau dans la saison (×2, ×3…), niveaux dans l'historique. ✨ Légendaires : sans niveau.</p>${cbLeg()}
+ return`<div class="card cbcard"><h3>Badges</h3><p class="m">Challenge (tous ses tableaux : simples, doubles, mixtes ; en double, les 2 partenaires) et 🪶 tous les modules. Attribués tout seuls par l'appli d'après les résultats, pour le plaisir : ils ne comptent pas dans le classement. Niveaux : ${CBL.map(l=>l[0]+' '+l[1]).join(', ')}. Badges ★ uniques : sans niveau dans la saison (×2, ×3…), niveaux dans l'historique. ✨ Légendaires : sans niveau. Comptés à partir de la saison ${CB0.replace('-','/')}.</p>${cbLeg()}
  <h4>Saison ${esc(p.sn)} <span class="m">· remis à zéro chaque saison${cs.length?' · '+cn(cs,p.ls,0):''}</span></h4>${cs.length?`<ul class="cbl cbmine">${cs.map(b=>row(b,p.cur[b],p.ls[b],cbOf(b).S,{lv:p.ls[b],n:p.cur[b],k:p.ck[b]})).join('')}</ul>`:'<p class="m">Aucun cette saison pour l\'instant.</p>'}
  <h4>Historique · toutes saisons <span class="m">· seuils plus hauts${ts.length?' · '+cn(ts,p.lh,1):''}</span></h4>${ts.length?`<ul class="cbl cbmine">${ts.map(b=>row(b,p.tot[b],p.lh[b],cbOf(b).H,{tot:1,lv:p.lh[b],n:p.tot[b]},cs.includes(b))).join('')}</ul>`:'<p class="m">Aucun pour l\'instant.</p>'}
  <h4>✨ Légendaires</h4>${lg.length?`<ul class="cbl cbmine">${lg.map(b=>`<li>${cbH(b,{n:p.tot[b]})} <span class="cbpg"><b>Débloqué</b>${p.tot[b]>1?' ×'+p.tot[b]:''}${p.cur[b]?' · cette saison':''}</span><span class="m">${esc(cbOf(b).d)}</span></li>`).join('')}</ul>`:'<p class="m">Aucun pour l\'instant : ils sont très rares.</p>'}

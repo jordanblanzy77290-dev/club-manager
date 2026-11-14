@@ -2197,6 +2197,8 @@ function pfR(id){const p=P(id);if(!p){S.pf=0;return jR()}const all=[];
    so:1 = badge unique dans la saison (sans niveau, ×n), niveaux seulement dans l'historique (CBH1) ; one:1 = sans niveau nulle part (×n) ; leg:1 = légendaire (sans niveau, très rare).
    v84 : vs = mot devant le nom de l'adversaire (« contre » par défaut ; x.cnt, x.cntM et x.hit notent les adversaires) ; only = champ de la ligne qui limite les joueurs (rpNew : le remplaçant) ;
    meta:1 = calculé d'après les autres badges de la saison : v(z), z.bv (valeurs), z.lv (badges ayant un niveau), z.ty (catégories) ; glob:1 / mod 'g' = tous les modules : v(z), z.n = matchs joués dans la saison (cbGlobN). Ligne de tableau : x.fin (classement final), x.N (inscrits), x.Rmax / x.R0max (dernier rang / rang de départ), m.op (adversaire). ---------- */
+/* discipline d'un tableau (v85) : simple (SH, SD, SI), double (DH, DD, DI), mixte (DM) ; badges d'une discipline que le club ne joue pas : masqués */
+const cbDis=k=>k=='DM'?'mix':CATS[k]?(CATS[k][1]==2?'dbl':'sgl'):'',cbDisOk=d=>d=='all'?['sgl','dbl','mix'].every(cbDisOk):((S.club&&S.club.cats)||Object.keys(CATS)).some(k=>cbDis(k)==d);
 const CBTY={pos:['👍','Les bons'],neg:['😬','Les mauvais (pour rire)'],hum:['😄','Pour rire']},CBMOD={c:'Challenge interne',g:'Tous les modules'};
 const CBL=[['🥉','Bronze'],['🥈','Argent'],['🥇','Or'],['💎','Platine']],CBS=[1,2,3,4],CBH0=[1,4,8,15],CBH1=[1,3,6,10];/* CBH1 : historique des badges uniques (so:1) */
 const cbN=v=>typeof v=='number',cbPts=(s,j)=>s.reduce((t,x)=>t+x[j],0),cbSet=m=>m.st&&m.st.length;
@@ -2218,6 +2220,13 @@ const CBD=[
  {id:'present',so:1,H:CBH1,ic:'🗓️',t:'Toujours là',ty:'pos',sea:1,d:'Jouer au moins 10 matchs dans la saison sans aucun forfait ni tapis vert perdu',v:s=>s.n>=10&&!s.bad?1:0},
  {id:'collect',ic:'🎖️',t:'Collectionneur',ty:'pos',meta:1,u:'badges',S:[5,10,15,20],H:[10,20,30,40],d:'Avoir des badges différents : dans la saison (niveau atteint) et dans l\'historique (tous ceux obtenus un jour)',v:z=>Object.keys(z.lv).length},
  {id:'mordu',ic:'🪶',t:'Mordu de bad',ty:'pos',mod:'g',glob:1,u:'matchs',S:[20,50,100,200],H:[50,200,500,1000],d:'Jouer des matchs dans l\'appli : challenge, SmashRoulette, tournoi, Choc des volants (tous modules confondus)',v:z=>z.n},
+ {id:'asS',ic:'🎯',t:'As du simple',ty:'pos',dis:'sgl',u:'victoires',S:[2,3,4,5],H:[5,15,30,50],d:'Gagner des matchs en simple (simple homme, simple dame, simple intergenre)',v:x=>cbDis(x.k)=='sgl'?x.r.w||0:0},/* v85 (Dan, 14/11/2026) : badges de chaque discipline */
+ {id:'asD',ic:'👥',t:'As du double',ty:'pos',dis:'dbl',u:'victoires',S:[2,3,4,5],H:[5,15,30,50],d:'Gagner des matchs en double (double homme, double dame, double intergenre)',v:x=>cbDis(x.k)=='dbl'?x.r.w||0:0},
+ {id:'asM',ic:'👫',t:'As du mixte',ty:'pos',dis:'mix',u:'victoires',S:[2,3,4,5],H:[5,15,30,50],d:'Gagner des matchs en double mixte',v:x=>cbDis(x.k)=='mix'?x.r.w||0:0},
+ {id:'topS',so:1,H:CBH1,ic:'🦅',t:'Seul au sommet',ty:'pos',dis:'sgl',d:'Finir 1er d\'un tableau de simple (classement final)',v:x=>x.fin&&!x.r.out&&x.r.r==1&&cbDis(x.k)=='sgl'?1:0},
+ {id:'topD',so:1,H:CBH1,ic:'🤝',t:'Duo de choc',ty:'pos',dis:'dbl',d:'Finir 1er d\'un tableau de double (classement final, les 2 partenaires)',v:x=>x.fin&&!x.r.out&&x.r.r==1&&cbDis(x.k)=='dbl'?1:0},
+ {id:'topM',so:1,H:CBH1,ic:'🏵️',t:'Mixte en or',ty:'pos',dis:'mix',d:'Finir 1er du double mixte (classement final, les 2 partenaires)',v:x=>x.fin&&!x.r.out&&x.r.r==1&&cbDis(x.k)=='mix'?1:0},
+ {id:'poly',so:1,H:CBH1,ic:'🧭',t:'Polyvalent',ty:'pos',dis:'all',sea:1,d:'Gagner au moins un match en simple, en double et en mixte la même saison',v:s=>s.wd.sgl&&s.wd.dbl&&s.wd.mix?1:0},
  {id:'champ',so:1,H:CBH1,ic:'👑',t:'Champion',ty:'pos',d:'Finir 1er d\'un tableau (classement final)',v:x=>x.fin&&!x.r.out&&x.r.r==1?1:0},
  {id:'splash',so:1,H:CBH1,ic:'🙃',t:'L\'arroseur arrosé',ty:'neg',vs:'revanche de',d:'Perdre contre un adversaire que tu avais battu plus tôt dans le tableau',v:x=>{const W={};let n=0;x.P.forEach(m=>{if(m.won)W[m.op]=(W[m.op]||0)+1;else if(W[m.op]){W[m.op]--;n++;x.hit(m.op)}});return n}},/* v84 : miroir de Revanche */
  {id:'souffle',so:1,H:CBH1,ic:'🎈',t:'Le soufflé retombé',ty:'neg',d:'Perdre en 3 sets après avoir gagné le 1er (score saisi)',v:x=>x.cnt(m=>cbSet(m)==3&&!m.won&&m.st[0][0]>m.st[0][1])},/* miroir de Remontada */
@@ -2252,19 +2261,20 @@ const CBD=[
  {id:'dyn',ic:'🏛️',t:'Dynastie',ty:'pos',leg:1,sea:1,d:'Être champion du même tableau 2 saisons de suite',v:s=>s.chK.filter(k=>s.prevChK.includes(k)).length},
  {id:'pillar',ic:'🗿',t:'Pilier',ty:'pos',leg:1,sea:1,d:'Jouer 5 saisons du challenge',v:s=>s.idx==4?1:0},
  {id:'dream',ic:'🏆',t:'Saison de rêve',ty:'pos',leg:1,meta:1,d:'Être 👑 Champion et 🚀 Fusée 💎 platine la même saison',v:z=>z.lv.champ&&cbLv(z.bv.rocket||0,cbOf('rocket').S)>=4?1:0},
+ {id:'triple',ic:'🔱',t:'Triple couronne',ty:'pos',leg:1,dis:'all',sea:1,d:'Finir 1er en simple, en double et en mixte la même saison',v:s=>['sgl','dbl','mix'].every(d=>s.chK.some(k=>cbDis(k)==d))?1:0},
  {id:'blank',ic:'💀',t:'Saison blanche',ty:'neg',leg:1,d:'Perdre tous ses matchs d\'un tableau (au moins 5 joués)',v:x=>x.fin&&x.P.length>=5&&x.M.filter(m=>m.ty!='bye').every(m=>!m.won)?1:0},
  {id:'fall',ic:'🪂',t:'Chute libre',ty:'neg',leg:1,d:'Commencer 1er d\'un tableau et le finir dans la 2e moitié',v:x=>x.fin&&!x.r.out&&x.N>=4&&x.r.r0==1&&x.r.r>x.N/2?1:0},
  {id:'second',ic:'2️⃣',t:'Éternel second',ty:'hum',leg:1,sea:1,d:'Finir 2e de 2 tableaux la même saison',v:s=>s.se>=2?1:0}
 ].map(b=>({mod:'c',u:'fois',S:CBS,H:CBH0,...b,...(b.leg?{one:1}:{})}));
-const cbOf=id=>CBD.find(b=>b.id==id),cbNeg=()=>!(S.cfg&&S.cfg.bdNeg===false),cbVis=b=>!!b&&(b.ty!='neg'||cbNeg()),cbOrd=id=>CBD.findIndex(b=>b.id==id);
+const cbOf=id=>CBD.find(b=>b.id==id),cbNeg=()=>!(S.cfg&&S.cfg.bdNeg===false),cbVis=b=>!!b&&(b.ty!='neg'||cbNeg())&&(!b.dis||cbDisOk(b.dis)),cbOrd=id=>CBD.findIndex(b=>b.id==id);
 /* niveau (0 à 4) d'une valeur selon des seuils ; texte des seuils */
 const cbLv=(v,T)=>T.filter(t=>v>=t).length,cbThr=T=>T.map((t,i)=>CBL[i][0]+' '+t).join(' · '),cbFlat=(B,h)=>!!(B.one||(B.so&&!h)),cbLvB=(B,v,h)=>cbFlat(B,h)?(v>0?1:0):cbLv(v,h?B.H:B.S);
 /* valeurs de chaque ligne d'un tableau (lignes et matchs d'une saison, en cours ou archivée) : [{badge: valeur > 0}] ; ms absent (saison archivée avec une ancienne version) : seules les valeurs tirées des totaux */
-function cbRows(rows,ms,fin){const same=(x,ids)=>x.length==ids.length&&x.every(i=>ids.includes(i)),mx=Math.max(0,...rows.map(r=>r.n||0)),act=rows.filter(r=>!r.out),N=act.length,Rmax=Math.max(0,...act.map(r=>r.r||0)),R0max=Math.max(0,...act.map(r=>r.r0||0)),
+function cbRows(rows,ms,fin,k){const same=(x,ids)=>x.length==ids.length&&x.every(i=>ids.includes(i)),mx=Math.max(0,...rows.map(r=>r.n||0)),act=rows.filter(r=>!r.out),N=act.length,Rmax=Math.max(0,...act.map(r=>r.r||0)),R0max=Math.max(0,...act.map(r=>r.r0||0)),
  sets=(sc,me)=>{const L=String(sc||'').split(/\s*,\s*/).map(x=>x.split('-').map(Number)).filter(x=>x.length==2&&x.every(n=>n>=0&&n<100));return L.length?L.map(x=>me=='a'?x:[x[1],x[0]]):null};
  let H=null;const hit=op=>{if(H&&op)H.push(op)},keep=f=>m=>{let ok=false;try{ok=!!f(m)}catch(e){}if(ok)hit(m.op);return ok},ops=[];
  const out=rows.map(r=>{const M=(ms||[]).filter(m=>same(m.a,r.ids)||(m.b.length&&same(m.b,r.ids))).map(m=>{const me=same(m.a,r.ids)?'a':'b';return{won:m.w==me,ty:m.ty||'',p0:me=='a'?m.pa:m.pb,po:me=='a'?m.pb:m.pa,op:(me=='a'?m.b:m.a).slice().sort().join('-'),st:m.ty?null:sets(m.sc,me)}}),
-  P=M.filter(m=>m.ty==''||m.ty=='ab'),x={r,M,P,mx,fin:!!fin,N,Rmax,R0max,hit,cnt:f=>P.filter(keep(f)).length,cntM:f=>M.filter(keep(f)).length,runs:(f,n)=>{let k=0,c=0;for(const m of P){k=f(m)?k+1:0;if(k==n){c++;k=0}}return c}},o={},op={};
+  P=M.filter(m=>m.ty==''||m.ty=='ab'),x={r,M,P,mx,fin:!!fin,N,Rmax,R0max,k:k||'',hit,cnt:f=>P.filter(keep(f)).length,cntM:f=>M.filter(keep(f)).length,runs:(f,n)=>{let k=0,c=0;for(const m of P){k=f(m)?k+1:0;if(k==n){c++;k=0}}return c}},o={},op={};
   CBD.filter(b=>!b.sea&&!b.meta&&!b.glob&&b.mod=='c').forEach(b=>{H=[];let v=0;try{v=+b.v(x)||0}catch(e){}if(v>0){o[b.id]=v;if(H.length)op[b.id]=H}});H=null;ops.push(op);return o});
  out.ops=ops;return out}
 /* matchs joués par joueur et par saison dans tous les modules (v84) : challenge (saisons L), SmashRoulette (soirées archivées et en cours), tournoi (éditions clôturées), Choc des volants (saisons) */
@@ -2285,11 +2295,11 @@ const cbPrevY=y=>{const a=parseInt(String(y),10);return a?(a-1)+'-'+a:''};
 /* badges de tous les joueurs à partir de saisons (archives, puis tableaux en cours) : valeurs de la saison en cours (remises à zéro chaque saison), de toutes les saisons (historique), niveaux (v83) */
 function cbAgg(L){const sn=season(),A={},ys={},SM=cbSeaMx(L),G=id=>A[id]=A[id]||{cur:{},ck:{},tot:{},op:{},sn},
   add=(id,y,b,v,ks,ops)=>{const P=G(id),Y=ys[id]&&ys[id][y];P.tot[b]=(P.tot[b]||0)+v;if(Y)Y.bv[b]=(Y.bv[b]||0)+v;if(y==sn){P.cur[b]=(P.cur[b]||0)+v;ks.forEach(k=>{(P.ck[b]=P.ck[b]||[]).includes(k)||P.ck[b].push(k)});if(ops)(P.op[b]=P.op[b]||[]).push(...ops)}};
- L.forEach(s=>{const o=cbRows(s.rows,s.ms,s.fin);s.rows.forEach((r,i)=>r.ids.forEach(id=>{G(id);const Ys=ys[id]=ys[id]||{},Y=Ys[s.y]=Ys[s.y]||{T:new Set,n:0,ch:0,se:0,chK:[],pairs:[],duo:[],fr:{},bad:0,bv:{},old:false};Y.T.add(s.k);Y.old=Y.old||!r.new;Y.n+=r.n||0;Y.bad+=(o[i].ghost||0)+(o[i].miss||0);
+ L.forEach(s=>{const o=cbRows(s.rows,s.ms,s.fin,s.k);s.rows.forEach((r,i)=>r.ids.forEach(id=>{G(id);const Ys=ys[id]=ys[id]||{},Y=Ys[s.y]=Ys[s.y]||{T:new Set,n:0,ch:0,se:0,chK:[],pairs:[],duo:[],fr:{},bad:0,bv:{},old:false,wd:{}};Y.T.add(s.k);Y.old=Y.old||!r.new;const dk=cbDis(s.k);Y.wd[dk]=(Y.wd[dk]||0)+(r.w||0);Y.n+=r.n||0;Y.bad+=(o[i].ghost||0)+(o[i].miss||0);
   if(r.ids.length==2){const pt=r.ids.find(x=>x!=id);Y.pairs.push(s.k+':'+pt);Y.duo.push({k:s.k,pt,w:r.w||0})}
   if(s.fin&&!r.out){Y.fr[s.k]=r.r;if(r.r==1){Y.ch++;Y.chK.push(s.k)}else if(r.r==2)Y.se++}
   Object.entries(o[i]).forEach(([b,v])=>{const B=cbOf(b);if(B.only&&!(r[B.only]||[]).includes(id))return;add(id,s.y,b,v,[s.k],(o.ops[i]||{})[b])})}))});
- Object.entries(ys).forEach(([id,Ys])=>{const yl=Object.keys(Ys).sort();yl.forEach((y,idx)=>{const Y=Ys[y],pv=Ys[cbPrevY(y)],x={y,nTab:Y.T.size,n:Y.n,mx:SM[y]||0,ch:Y.ch,se:Y.se,chK:Y.chK,prevChK:pv?pv.chK:[],prev:!!pv,idx,pairs:Y.pairs,prevPairs:pv?pv.pairs:[],duo:Y.duo,fr:Y.fr,prevFr:pv?pv.fr:{},bad:Y.bad,old:Y.old};
+ Object.entries(ys).forEach(([id,Ys])=>{const yl=Object.keys(Ys).sort();yl.forEach((y,idx)=>{const Y=Ys[y],pv=Ys[cbPrevY(y)],x={y,nTab:Y.T.size,n:Y.n,mx:SM[y]||0,ch:Y.ch,se:Y.se,chK:Y.chK,prevChK:pv?pv.chK:[],prev:!!pv,idx,pairs:Y.pairs,prevPairs:pv?pv.pairs:[],duo:Y.duo,fr:Y.fr,prevFr:pv?pv.fr:{},bad:Y.bad,old:Y.old,wd:Y.wd};
   CBD.filter(b=>b.sea).forEach(b=>{let v=0;try{v=+b.v(x)||0}catch(e){}if(v>0)add(id,y,b.id,v,[...Y.T])})})});
  /* tous les modules (v84) */
  const GN=cbGlobN(L);Object.entries(GN).forEach(([y,M])=>Object.entries(M).forEach(([id,n])=>CBD.filter(b=>b.glob).forEach(b=>{let v=0;try{v=+b.v({n})||0}catch(e){}if(v>0)add(id,y,b.id,v,[])})));
@@ -2338,7 +2348,7 @@ function cbPf(id,pl){if(!modOn('c'))return'';const p=cbPl(id),srt=(a,b)=>cbOrd(a
  <details class="fold sub" open><summary>À débloquer · ${todo.length} badge${todo.length>1?'s':''} : comment les obtenir</summary><div class="fb">${todoL||'<p class="m">Tous débloqués, bravo !</p>'}</div></details>
  <details class="fold sub"><summary>Comment gagner les badges : tous les seuils (saison et historique)</summary><div class="fb">${cbHow(p)}${CB.length?`<h4>🏅 Badges du club</h4><ul class="cbl">${CB.map(b=>`<li>${bdgH(b)} <span>${esc(b.d||'Décerné par le club')}</span></li>`).join('')}</ul>`:''}</div></details></div>`}
 /* tableau du challenge : qui a quel badge cette saison (niveau d'après ce tableau), et message WhatsApp */
-function cbTab(k){const c=S.ch[k];if(!c||!c.g||!c.g.length)return[];const rows=mkRows(c),o=cbRows(rows,chMs(c),c.final),m={};
+function cbTab(k){const c=S.ch[k];if(!c||!c.g||!c.g.length)return[];const rows=mkRows(c),o=cbRows(rows,chMs(c),c.final,k),m={};
  rows.forEach((r,i)=>Object.entries(o[i]).forEach(([b,v])=>{const l=cbLvB(cbOf(b),v,0);if(l)(m[b]=m[b]||[]).push({nm:r.nm,v,l})}));
  return CBD.filter(b=>m[b.id]&&cbVis(b)).map(b=>({b,who:m[b.id].sort((x,y)=>y.l-x.l||y.v-x.v||x.nm.localeCompare(y.nm))}))}
 const cbWho=(w,B)=>w.map(x=>(B&&cbFlat(B,0)?(B.leg?'✨ ':''):CBL[x.l-1][0]+' ')+x.nm+(B&&cbFlat(B,0)&&x.v>1?' ×'+x.v:'')).join(', ');

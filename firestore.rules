@@ -2,7 +2,7 @@ rules_version = '2';
 // Club Manager : règles de sécurité de la base (à coller dans Firestore > Règles, puis « Publier »).
 // Chaque club a ses données à part (clubs/<club>/...). On n'y accède que si l'administrateur général
 // nous a invité (clubs/<club>/members/<e-mail>), avec des droits par rubrique : 0 rien, 1 voir, 2 modifier
-// (c challenge, s SmashRoulette, t tournoi, v Choc des volants — 3 = capitaine d'un club —, a amicales, j joueurs, x admin du club).
+// (c challenge, s SmashRoulette, t tournoi, v Choc des volants — 3 = capitaine d'un club —, a amicales, e enfants, j joueurs, x admin du club).
 // L'administrateur général est déclaré à la main dans la console : admins/<e-mail> (personne ne peut l'écrire depuis l'appli).
 // Tout ce qui n'est pas autorisé ci-dessous est refusé.
 service cloud.firestore {
@@ -20,11 +20,13 @@ service cloud.firestore {
         && d.j is string && d.j.size() < 900000 && d.by == me() && d.at is int;
     }
     // rubrique d'un document de données
-    function part(d) { return d == 'sr' ? 's' : d == 'tn' ? 't' : d == 'jmeta' ? 'j' : 'c'; }
-    function dataId(d) { return d in ['chmeta', 'chhist', 'sr', 'tn', 'jmeta'] || d.matches('ch_[A-Z]{2}'); }
+    // module Enfants (e) : réglages, présence et SmashRoulette des groupes (kids), challenge des groupes (ch_EA, ch_EB) ; il lit aussi le calendrier du challenge (chmeta)
+    function part(d) { return d == 'sr' ? 's' : d == 'tn' ? 't' : d == 'jmeta' ? 'j' : d in ['kids', 'ch_EA', 'ch_EB'] ? 'e' : 'c'; }
+    function dataId(d) { return d in ['chmeta', 'chhist', 'sr', 'tn', 'jmeta', 'kids'] || d.matches('ch_[A-Z]{2}'); }
+    function dataRead(m, d) { return rk(m, part(d)) >= 1 || (d == 'chmeta' && rk(m, 'e') >= 1); }
     // fiches joueurs : utiles à toutes les rubriques
-    function plRead(m) { return rk(m, 'c') >= 1 || rk(m, 's') >= 1 || rk(m, 't') >= 1 || rk(m, 'j') >= 1 || rk(m, 'a') >= 1 || rk(m, 'v') == 1 || rk(m, 'v') == 2; }
-    function plEdit(m) { return rk(m, 'c') == 2 || rk(m, 's') == 2 || rk(m, 't') == 2 || rk(m, 'j') == 2 || rk(m, 'v') == 2; }
+    function plRead(m) { return rk(m, 'c') >= 1 || rk(m, 's') >= 1 || rk(m, 't') >= 1 || rk(m, 'j') >= 1 || rk(m, 'a') >= 1 || rk(m, 'e') >= 1 || rk(m, 'v') == 1 || rk(m, 'v') == 2; }
+    function plEdit(m) { return rk(m, 'c') == 2 || rk(m, 's') == 2 || rk(m, 't') == 2 || rk(m, 'j') == 2 || rk(m, 'e') == 2 || rk(m, 'v') == 2; }
     // Choc des volants : un capitaine (v = 3) ne touche qu'à ce qui concerne son club
     function capOk(m, d) {
       let c = m.get('cap', -1);
@@ -63,7 +65,7 @@ service cloud.firestore {
         allow write: if sup();
       }
       match /data/{d} {
-        allow read: if sup() || (authed() && rk(mem(c), part(d)) >= 1);
+        allow read: if sup() || (authed() && dataRead(mem(c), d));
         allow create, update: if dataId(d) && body() && (sup() || (authed() && rk(mem(c), part(d)) == 2));
         allow delete: if sup() || (authed() && rk(mem(c), part(d)) == 2);
       }
@@ -76,6 +78,12 @@ service cloud.firestore {
         allow read: if sup() || (authed() && rk(mem(c), 's') >= 1);
         allow create, update: if body() && (sup() || (authed() && rk(mem(c), 's') == 2));
         allow delete: if sup() || (authed() && rk(mem(c), 's') == 2);
+      }
+      // séances de SmashRoulette archivées des groupes d'enfants
+      match /srk/{k} {
+        allow read: if sup() || (authed() && rk(mem(c), 'e') >= 1);
+        allow create, update: if body() && (sup() || (authed() && rk(mem(c), 'e') == 2));
+        allow delete: if sup() || (authed() && rk(mem(c), 'e') == 2);
       }
       match /tna/{k} {
         allow read: if sup() || (authed() && rk(mem(c), 't') >= 1);

@@ -943,9 +943,14 @@ function tv(gi,mi,pp){const c=C(),g=(pp?c.p2:c.g)[gi],m=g.m[mi];if(m.done)return
  const k='tv'+(pp?'p':'')+gi+'_'+mi,ca=+(($(k+'a')||{}).value||0),cb=+(($(k+'b')||{}).value||0),a=E(A),b=E(B),pa=played(c,A),pb=played(c,B);let w,why;
  if(ca!=cb){w=ca>cb?'a':'b';why='1. implication ('+ca+' contre '+cb+' créneaux proposés)'}
  else if(pa!=pb){w=pa>pb?'a':'b';why='2. assiduité ('+pa+' contre '+pb+' matchs joués)'}
- else if(a.nw&&b.nw){w=Math.random()<.5?'a':'b';why='4. tirage au sort (deux [New] à égalité parfaite)'}
+ else if(rkE(a)==rkE(b)){w=Math.random()<.5?'a':'b';why='4. tirage au sort (rangs égaux : '+(a.nw&&b.nw?'deux [New]':'ex æquo '+rkE(a))+')'}/* v88 (Dan, 18/11/2026) : rangs égaux = deux [New] ou deux ex æquo */
  else{w=a.r<b.r?'a':'b';why='3. meilleur rang dynamique (#'+Math.min(a.r,b.r)+')'}
  winC(gi,mi,0,ffS(w),pp,0,why);msg('Tapis vert : '+E(w=='a'?A:B).ids.map(sn).join(' / ')+' gagne, critère '+why+'. Score enregistré : '+ffS('a').replace(/, /g,' / ')+'.')}
+/* v88 (Dan, 18/11/2026) : double forfait (aucun des deux ne peut jouer sur la période du tour) : le meilleur rang passe, sans vol de rang ; tirage au sort si les rangs sont égaux
+   (deux [New], ou deux ex æquo). Score d'un forfait pour le vainqueur ; les deux joueurs sont notés forfait (stats, badges). */
+function dfW(a,b){const ra=rkE(a),rb=rkE(b);if(ra==rb)return{w:Math.random()<.5?'a':'b',why:'tirage au sort (rangs égaux : '+(a.nw&&b.nw?'deux [New]':'ex æquo '+ra)+')'};const w=a.r<b.r?'a':'b';return{w,why:'meilleur rang ('+(w=='a'?ra+' contre '+rb:rb+' contre '+ra)+')'}}
+function dff(gi,mi,pp){const c=C(),g=(pp?c.p2:c.g)[gi],m=g&&g.m[mi];if(!m||m.done)return;const A=rs(g,m.a),B=rs(g,m.b);if(A==null||B==null)return;
+ const d=dfW(E(A),E(B));winC(gi,mi,0,ffS(d.w),pp,0,0,d.why);msg('Double forfait : '+E(d.w=='a'?A:B).ids.map(sn).join(' / ')+' passe, '+d.why+'. Les deux sont notés forfait. Score enregistré : '+ffS('a').replace(/, /g,' / ')+'.')}
 function abd(gi,mi,side,pp){const g=(pp?C().p2:C().g)[gi],m=g.m[mi];if(m.done)return;
  const v=need(pp,g)?nSc((($('a'+(pp?'p':'')+gi+'_'+mi)||{}).value||'').trim()):'';if(need(pp,g)&&!v&&SC().mode!='pts')return msg('Score à l\'abandon obligatoire (poule de la phase de classement).');
  const x=abSc(side,v);if(x.err)return msg(x.err);winC(gi,mi,0,x.sc,pp,1)}
@@ -959,11 +964,11 @@ function abSc(side,v){const c=SC();if(c.mode=='pts')return{sc:ffS(side?'a':'b')}
  const dc=c.gap>1&&lp>=c.pts-1,wp=Math.max(cur[W],dc?(c.cap?Math.min(c.cap,lp+c.gap):lp+c.gap):c.pts),set=[0,0];set[side]=lp;set[W]=wp;L.push(set);wins[W]++;/* le vainqueur prend les points manquants */
  while(wins[W]<c.sw){const s=[0,0];s[W]=c.pts;L.push(s);wins[W]++}
  return{sc:L.map(x=>x[0]+'-'+x[1]).join(', ')}}
-function winC(gi,mi,w,ff,pp,ab,tvw){const L0=pp?C().p2:C().g,g=L0&&L0[gi],m=g&&g.m[mi];if(!m||m.done)return;const sc=nSc(ff||(need(pp,g)?($('s'+(pp?'p':'')+gi+'_'+mi)||{}).value||'':''));
+function winC(gi,mi,w,ff,pp,ab,tvw,df){const L0=pp?C().p2:C().g,g=L0&&L0[gi],m=g&&g.m[mi];if(!m||m.done)return;const sc=nSc(ff||(need(pp,g)?($('s'+(pp?'p':'')+gi+'_'+mi)||{}).value||'':''));
  let r=null;if(sc){r=sets(sc);if(!r)return msg('Score invalide. Règle : '+ruleTxt()+'. Exemple : '+exSc());w=r[0]>r[1]?'a':'b'}
  if(need(pp,g)&&!sc)return msg('Score exact obligatoire (poule de la phase de classement).');if(!w)return;
  snap();m.at=S.seq=(S.seq||0)+1;if(r){m.S=r;m.X=pts(sc)}
- const A=rs(g,m.a),B=rs(g,m.b),W=w=='a'?A:B,L=w=='a'?B:A;m.done=1;m.w=W;m.l=L;m.sc=need(pp,g)?sc:'';m.ff=ff&&!ab?1:0;m.ab=ab?1:0;if(tvw)m.tv=tvw;
+ const A=rs(g,m.a),B=rs(g,m.b),W=w=='a'?A:B,L=w=='a'?B:A;m.done=1;m.w=W;m.l=L;m.sc=need(pp,g)?sc:'';m.ff=ff&&!ab?1:0;m.ab=ab?1:0;if(tvw)m.tv=tvw;if(df)m.df=df;
  const eA=E(A),eB=E(B);m.pa=eqV(C(),eA);m.pb=eqV(C(),eB);const x=E(W),y=E(L);if(x.r>y.r){const a=y.r,b=x.r;C().ent.forEach(e=>{if(e.r>=a&&e.r<b)e.r++});x.r=a}/* vol de rang avec décalage des rangs intermédiaires */
  if(!pp)eqWin(C(),x);x.nw=y.nw=false;m.qa=eqV(C(),eA);m.qb=eqV(C(),eB);auto(g);const rc=reclass(C(),g,pp);chkFinal();save();R();if(rc)msg(g.rr?'Poule terminée : rangs reclassés dans l\'ordre de la poule.':'Tableau terminé : rangs reclassés dans l\'ordre des places.')}
 const pts=s=>s.split(/\s*,\s*/).reduce((t,x)=>{const[m,n]=x.split('-');return[t[0]+ +m,t[1]+ +n]},[0,0]);
@@ -1043,9 +1048,9 @@ function chRep(k,edit){const o=S.ch[k],cc=S.cc,c=JSON.parse(JSON.stringify(o));i
    ev.push({t:e.at,e})}
   c.ent=c.ent.filter(e=>!e.late);c.ent.forEach(e=>{e.r=e.r0;e.nw=e.n0!=null?!!e.n0:!e.h;if(c.eqv&&e.nw)e.eq=1;else delete e.eq});
   /* résultats saisis, remis à zéro */
-  const K=['w','l','sc','S','X','ff','ab','tv','at'];let mx1=0;
+  const K=['w','l','sc','S','X','ff','ab','tv','df','at'];let mx1=0;
   for(const x of G)x.g.m.forEach((m,mi)=>{if(m.done&&!m.bye){if(!m.at)throw'ancien';const r={};K.forEach(f=>{if(m[f]!==undefined)r[f]=m[f]});ev.push({t:m.at,x,mi,r});if(!x.pp)mx1=Math.max(mx1,m.at)}
-   if(m.done||m.bye){m.done=0;m.bye=0}['w','l','sc','S','X','ff','ab','tv','at','pa','pb','qa','qb'].forEach(f=>delete m[f])});
+   if(m.done||m.bye){m.done=0;m.bye=0}['w','l','sc','S','X','ff','ab','tv','df','at','pa','pb','qa','qb'].forEach(f=>delete m[f])});
   for(const x of G){delete x.g.rd;if(x.pp){delete x.g.blk;delete x.g.r1;delete x.g.r2}rst(x.g);auto(x.g)}
   if((c.p2||[]).length)ev.push({t:c.p2at||mx1+.5,p2:1});c.final=0;
   ev.sort((a,b)=>a.t-b.t);let n=0;
@@ -1070,18 +1075,19 @@ function corrOk(c,pp,g,mi,same){const m=g.m[mi];if(!m||!m.done||m.bye)return'Ce 
  return''}
 function corr(pp,gi,mi,kind,side){const k=S.cc,c=C(),g=(pp?c.p2:c.g)[gi],m=g&&g.m[mi];if(!m||!m.done||m.bye)return;const A=rs(g,m.a),B=rs(g,m.b),nd=need(pp,g);
  /* nouveau résultat, comme une saisie normale (winC) : ff = score imposé (forfait, abandon) ou score saisi en poule */
- let w=null,ff=0,ab=0,sc='';
+ let w=null,ff=0,ab=0,sc='',dwhy='';
  if(kind=='sc'){sc=nSc((($('cs'+(pp?'p':'')+gi+'_'+mi)||{}).value||'').trim());if(!sets(sc))return msg('Score invalide. Règle : '+ruleTxt()+'. Exemple : '+exSc())}
  else if(kind=='w'){if(nd)return;w=side?'b':'a'}
  else if(kind=='ff'){ff=ffS(side?'a':'b')}
+ else if(kind=='df'){const ra=rkNx(m.pa),rb=rkNx(m.pb),eqr=String(m.pa)==String(m.pb)||ra==rb;const dw=eqr?(Math.random()<.5?'a':'b'):ra<rb?'a':'b';ff=ffS(dw);dwhy=eqr?'tirage au sort (rangs égaux : '+(m.pa==='New'?'deux [New]':'ex æquo '+rkTx(m.pa))+')':'meilleur rang ('+(dw=='a'?rkTx(m.pa)+' contre '+rkTx(m.pb):rkTx(m.pb)+' contre '+rkTx(m.pa))+')'}
  else if(kind=='ab'){if(nd)return;const x=abSc(side,'');if(x.err)return msg(x.err);ff=x.sc;ab=1}
  const S0=ff||sc,r=S0?sets(S0):null;if(r)w=r[0]>r[1]?'a':'b';const wid=kind=='del'?null:w=='a'?A:B;
  const er=corrOk(c,pp,g,mi,kind!='del'&&wid==m.w);if(er)return msg(er);
- const res=chRep(k,cc=>{const gg=(pp?cc.p2:cc.g)[gi],mm=gg.m[mi];['w','l','sc','S','X','ff','ab','tv','pa','pb','qa','qb'].forEach(f=>delete mm[f]);
+ const res=chRep(k,cc=>{const gg=(pp?cc.p2:cc.g)[gi],mm=gg.m[mi];['w','l','sc','S','X','ff','ab','tv','df','pa','pb','qa','qb'].forEach(f=>delete mm[f]);
   if(kind=='del'){delete mm.at;mm.done=0;return}
-  mm.w=wid;mm.l=wid==A?B:A;if(r){mm.S=r;mm.X=pts(S0)}mm.sc=nd?S0:'';mm.ff=ff&&!ab?1:0;mm.ab=ab?1:0});
+  mm.w=wid;mm.l=wid==A?B:A;if(r){mm.S=r;mm.X=pts(S0)}mm.sc=nd?S0:'';mm.ff=ff&&!ab?1:0;mm.ab=ab?1:0;if(dwhy)mm.df=dwhy});
  if(!res.ok)return msg('Correction impossible : l\'historique de ce tableau ne peut pas être rejoué ('+res.why+').');
- snap();S.ch[k]=res.c;ACT=null;save();R();const nn=res.n+' match'+(res.n>1?'s':'')+' rejoué'+(res.n>1?'s':'');msg(kind=='del'?'Résultat effacé : le match est à rejouer. Rangs recalculés ('+nn+').':'Résultat corrigé : rangs recalculés ('+nn+' dans l\'ordre de saisie).')}
+ snap();S.ch[k]=res.c;ACT=null;save();R();const nn=res.n+' match'+(res.n>1?'s':'')+' rejoué'+(res.n>1?'s':'');msg(kind=='del'?'Résultat effacé : le match est à rejouer. Rangs recalculés ('+nn+').':(dwhy?'Double forfait : '+names(entOf(res.c,wid))+' passe, '+dwhy+'. ':'Résultat corrigé : ')+'rangs recalculés ('+nn+' dans l\'ordre de saisie).')}
 /* ---------- Calendrier, stats, profils ---------- */
 const dd=s=>new Date(s+'T12:00:00'),iso=d=>d.toISOString().slice(0,10),add=(d,n)=>{const x=new Date(d);x.setDate(x.getDate()+n);return x};
 const fr=s=>dd(s).toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'}),dS=s=>dd(s).toLocaleDateString('fr-FR',{day:'numeric',month:'short'});
@@ -1100,7 +1106,7 @@ function exDel(i){snap();const L=S.cal.x.split('\n');L.splice(i,1);S.cal.x=L.fil
 function ovSet(i,v){if(!v)return;const e=per().map(p=>p.b);e[i]=v;S.cal.ov[S.cc]=e;save();R()}
 function mkRows(c){const st={};c.ent.forEach(e=>st[e.id]={n:0,w:0,l:0,f:0,fw:0,b:0,ab:0});
  [...c.g,...(c.p2||[])].forEach(g=>g.m.forEach(m=>{if(!m.done)return;if(m.bye){if(m.w&&st[m.w])st[m.w].b++;return}
-  if(!st[m.w]||!st[m.l])return;if(m.ff){st[m.l].f++;st[m.w].fw++;return}st[m.w].n++;st[m.l].n++;st[m.w].w++;st[m.l].l++;if(m.ab)st[m.l].ab++}));
+  if(!st[m.w]||!st[m.l])return;if(m.ff){st[m.l].f++;if(m.df)st[m.w].f++;else st[m.w].fw++;return}st[m.w].n++;st[m.l].n++;st[m.w].w++;st[m.l].l++;if(m.ab)st[m.l].ab++}));
  const lv={};if((c.p2||[]).length){const L=lvlSet(nLv(c.p2));c.p2.forEach(p=>p.ids.forEach(i=>lv[i]=(L[lvlI(p)]||{}).n))}
  return c.ent.map(e=>({k:e.ids.slice().sort().join('-'),ids:e.ids,nm:e.ids.map(sn).join(' / '),r:e.r,r0:e.r0||e.r,new:!e.h,...(lv[e.id]?{lv:lv[e.id]}:{}),...(e.out?{out:1}:{}),...(e.rp?{rp:1,rpNew:e.ids.filter(i=>!((c.ent.find(x=>x.id==e.rp)||{}).ids||[]).includes(i))}:{}),...st[e.id]}))}
 function aw(a){const o={},ad=(r,t)=>(o[r.k]=o[r.k]||[]).push(t),rw=a.rows,mx=Math.max(0,...rw.map(r=>r.r0-r.r));
@@ -1123,7 +1129,7 @@ function closAsk(){const c=C(),y=(($('sn')||{}).value||'').trim();if(!c.g.length
  ask('Clôturer la saison '+esc(y)+' ?','Les rangs et les stats de '+CATS[S.cc][0]+' seront archivés, le classement historique mis à jour, puis le tableau vidé pour la saison suivante.'+(c.final?'':' Attention : le classement final n\'est pas encore établi, des matchs restent à jouer.'),'Clôturer',()=>clos(y))}
 /* matchs joués d'un tableau, dans l'ordre de saisie (gardés dans l'archive de la saison) */
 function chMs(c){const ms=[],en=id=>c.ent.find(e=>e.id==id);[...c.g.map(g=>[g,0]),...(c.p2||[]).map(g=>[g,1])].forEach(([g,pp])=>g.m.forEach((m,mi)=>{if(m.done&&m.bye){const e=en(m.w);if(e)ms.push({t:pp?m.t:(mi>>2)+1,a:e.ids,b:[],w:'a',ty:'bye',at:0,o:mi});return}if(!m.done)return;const A=rs(g,m.a),B=rs(g,m.b),eA=en(A),eB=en(B);if(!eA||!eB)return;
- ms.push({t:pp?(g.rr?'4-6':m.t):(mi>>2)+1,a:eA.ids,b:eB.ids,w:m.w==A?'a':'b',sc:m.sc||'',ty:m.tv?'tv':m.ab?'ab':m.ff?'ff':'',pa:m.pa,pb:m.pb,qa:m.qa,qb:m.qb,at:m.at||0})}));return ms.sort((x,y)=>(x.at||0)-(y.at||0)||(x.at||y.at?0:x.t-y.t))}
+ ms.push({t:pp?(g.rr?'4-6':m.t):(mi>>2)+1,a:eA.ids,b:eB.ids,w:m.w==A?'a':'b',sc:m.sc||'',ty:m.tv?'tv':m.ab?'ab':m.df?'df':m.ff?'ff':'',pa:m.pa,pb:m.pb,qa:m.qa,qb:m.qb,at:m.at||0})}));return ms.sort((x,y)=>(x.at||0)-(y.at||0)||(x.at||y.at?0:x.t-y.t))}
 function clos(y){const c=C();if(!c.g.length||!y)return;snap();
  const rows=mkRows(c).sort((a,b)=>a.r-b.r);(S.arch=S.arch||[]).push({y,c:S.cc,rows,ms:chMs(c)});
  updLad(S.cc,rows,y);S.ch[S.cc]={ent:[],g:[]};save();msg('Saison '+y+' clôturée pour '+CATS[S.cc][0]+'.')}
@@ -1254,7 +1260,7 @@ function srParR(){const m=msL(),mc=S.sr.mc;return`${NOEV&&NOMC?'':`<div class="c
  <div class="row">${['Moins de 5 terrains','5 à 7 terrains','Plus de 7 terrains'].map((t,i)=>`<label class="row">${t} <input type="number" id="ms${i}" min="0" max="10" value="${m[i]}" style="width:70px" onchange="srMs(${i},this.value)"></label>`).join('')}</div></div>`}
  <div class="card"><h3>Attente avant un croisement</h3><p class="m">Quand la tolérance 0 est impossible avec les joueurs en attente, mais qu'un match en cours va libérer des joueurs qui permettent mieux, le terrain attend la fin de ce match. Sans mieux au bout de ce délai, le meilleur tirage possible part. Si attendre ne changerait rien (en fin de soirée, quand tout le monde s'est déjà croisé), le match part tout de suite. Exception : si les 4 joueurs disponibles sortent du même match, le terrain attend la fin d'un autre match (au plus 3 fois ce délai) pour ne pas les remettre ensemble. 0 = jamais attendre.</p>
  <div class="row"><label class="row">Délai <input type="number" id="srwd" min="0" max="30" value="${srWd()}" style="width:70px" onchange="srWdSet(this.value)"> min maximum</label></div></div>
- <div class="card"><h3>Règles de la soirée</h3><dl class="kv">${kv('Choix des joueurs','Les présents qui ont le moins joué ce soir ; à égalité, ceux qui attendent depuis le plus longtemps. Un joueur revenu après une absence rattrape ses matchs en priorité.')}${kv('Anti-doublons','Tolérance 0 : aucun des 4 joueurs ne s\'est croisé ce soir, ni avec ni contre (AB contre CD = CD contre AB). Si c\'est impossible mais qu\'un match en cours va libérer des joueurs qui permettent mieux, le terrain attend sa fin, au plus '+srWd()+' min ; sinon tolérance 1, puis 2… À tolérance égale : le moins de rencontres déjà faites, en évitant surtout de rejouer avec ou contre quelqu\'un de son dernier match.')}${kv('Format d\'un match','Un set de 21 points, sans prolongation (21-20 possible)')+kv('Blessure','Le score au moment de l\'arrêt est gardé, l\'équipe du blessé perd (bouton « Abandon » sur le terrain)')}${kv('Classement','Point-average global (points marqués moins points encaissés)')}${kv('Éligibilité','Entier(Max ÷ 2) + 1 matchs, Max étant le plus grand nombre de matchs joués par un même joueur ; en dessous, « Non-éligible »')}${kv('Départage','1. Point-average, 2. Confrontation directe (si elle existe)')}${kv('Fin de séance','Arrêt conseillé quand au moins la moitié des présents ont le même nombre de matchs ; « Arrêter les matchs » fige le classement')}</dl></div>`}
+ <div class="card"><h3>Règles de la soirée</h3><dl class="kv">${kv('Choix des joueurs','Les présents qui ont le moins joué ce soir ; à égalité, ceux qui attendent depuis le plus longtemps. Un joueur revenu après une absence rattrape ses matchs en priorité.')}${kv('Anti-doublons','Tolérance 0 : aucun des 4 joueurs ne s\'est croisé ce soir, ni avec ni contre (AB contre CD = CD contre AB). Si c\'est impossible mais qu\'un match en cours va libérer des joueurs qui permettent mieux, le terrain attend sa fin, au plus '+srWd()+' min ; sinon tolérance 1, puis 2… À tolérance égale : le moins de rencontres déjà faites, en évitant surtout de rejouer avec ou contre quelqu\'un de son dernier match.')}${kv('Format d\'un match','Un set de 15 points, sans prolongation (15-14 possible)')+kv('Blessure','Le score au moment de l\'arrêt est gardé, l\'équipe du blessé perd (bouton « Abandon » sur le terrain)')}${kv('Classement','Point-average global (points marqués moins points encaissés)')}${kv('Éligibilité','Entier(Max ÷ 2) + 1 matchs, Max étant le plus grand nombre de matchs joués par un même joueur ; en dessous, « Non-éligible »')}${kv('Départage','1. Point-average, 2. Confrontation directe (si elle existe)')}${kv('Fin de séance','Arrêt conseillé quand au moins la moitié des présents ont le même nombre de matchs ; « Arrêter les matchs » fige le classement')}</dl></div>`}
 const busyS=()=>new Set(S.on.flatMap(g=>[...g.a,...g.b]));
 const frL=s=>dd(s).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'}),hm=t=>t?new Date(t).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}):'';
 const ago=t=>{if(!t)return'';const m=Math.max(0,Math.floor((Date.now()-t)/60000));return m<1?'< 1 min':m<60?m+' min':Math.floor(m/60)+' h '+String(m%60).padStart(2,'0')};
@@ -1376,7 +1382,7 @@ let DR={},SQ='',PQ='live';/* scores en cours de saisie (gardés quand la page se
 const dr=(id,k,v)=>{(DR[id]=DR[id]||{})[k]=v},scN=v=>{v=String(v==null?'':v).trim();return/^\d{1,2}$/.test(v)?+v:null};
 const srIn=(id,k)=>{const e=$('s'+k+id);return e&&e.value!==''&&e.value!=null?e.value:(DR[id]||{})[k]};
 function srEnd(id){const g=S.on.find(x=>x.id==id);if(!g)return;const a=scN(srIn(id,'a')),b=scN(srIn(id,'b'));
- if(a==null||b==null)return msg('Indique les deux scores du set (ex : 21 et 15).');if(a==b)return msg('Pas de match nul : le set doit avoir un gagnant.');
+ if(a==null||b==null)return msg('Indique les deux scores du set (ex : 15 et 11).');if(a==b)return msg('Pas de match nul : le set doit avoir un gagnant.');
  snap();S.games.push({id:g.id,court:g.court,a:g.a,b:g.b,sa:a,sb:b,t0:g.t0||0,t1:Date.now(),tol:g.tol||0});S.on=S.on.filter(x=>x.id!=id);delete DR[id];
  const n=S.sr.auto?srFill():0;save();R();msg('Terrain '+g.court+' : '+a+'-'+b+' enregistré.'+(n?(n>1?' '+n+' nouveaux matchs lancés.':' Nouveau match lancé.'):'')+((S.sr.wc||{})[g.court]?' Terrain '+g.court+' en attente d\'un meilleur tirage (tolérance 0 impossible pour l\'instant).':''))}
 /* abandon sur blessure : le score au moment de l'arrêt est gardé tel quel, l'équipe du blessé perd (même si elle menait) ; le blessé sort de la rotation */
@@ -1779,7 +1785,7 @@ function pline(c,g,m,side,o){const x=side?m.b:m.a,v=rs(g,x);
  const ck=o.ro?`<span class="cb${win?' on':''}"></span>`:`<input type="checkbox" class="ck"${win?' checked':''}${o.can?` onclick="winC(${o.gi},${o.mi},'${jsq(side?'b':'a')}',0,${o.pp})" title="Cocher le vainqueur"`:' disabled'} aria-label="${n} gagne">`;
  return`<div class="pl${win?' win':''}${lose?' lose':''}">${ck}<span class="nm" title="${n}">${n}</span><span class="rk">${rk}</span></div>`}
 function mbox(c,g,gi,mi,pp,ro,num,pos){const m=g.m[mi],A=rs(g,m.a),B=rs(g,m.b),ok=!m.done&&A!=null&&B!=null,nd=need(pp,g),o={ro,can:ok&&!ro&&!nd,pp:pp?1:0,gi,mi},
- pdv=ok?(c.pd||{})[[o.pp,gi,mi,A,B].join('.')]:'',tg=m.done?(m.bye?'qualifié d\'office':m.tv?'tapis vert':m.ab?'abandon':m.ff?'forfait':''):'',pool=!pos;
+ pdv=ok?(c.pd||{})[[o.pp,gi,mi,A,B].join('.')]:'',tg=m.done?(m.bye?'qualifié d\'office':m.tv?'tapis vert':m.ab?'abandon':m.df?'double forfait':m.ff?'forfait':''):'',pool=!pos;
  let s='';if(pool){if(ok&&nd&&!ro)s=`<div class="scr"><input id="s${pp?'p':''}${gi}_${mi}" inputmode="decimal" placeholder="${exSc()}" aria-label="Score du match M${num}"><button class="btn pri sm" onclick="winC(${gi},${mi},0,0,${o.pp})">Valider</button></div>`;else if(m.done&&m.sc)s=`<div class="scr done">${esc(m.sc)}</div>`;else if(ro&&nd&&!m.done)s=`<div class="scr wr"><span>Score</span><i></i></div>`}
  return`<div class="mb${pool?' pool':''}${ok?' ready':''}"${pos?` style="${pos}"`:''}>${pline(c,g,m,0,o)}<div class="vs"><span>M${num}</span>${pdv?`<span class="pdt" title="Match prévu le ${esc(fr(pdv))}">📅 ${pdv.slice(8,10)}/${pdv.slice(5,7)}</span>`:''}<i></i><span>vs</span><i></i><span class="tg">${tg}</span>${ok&&!ro?`<button class="mx wa${(c.wa||{})[[o.pp,gi,mi,A,B].join('.')]?' sent':''}" onclick="waOpen(${o.pp},${gi},${mi})" aria-label="Message WhatsApp du match M${num}" title="Message WhatsApp">💬</button><button class="mx" onclick="openAct(${o.pp},${gi},${mi})" aria-label="Forfait, abandon ou tapis vert" title="Forfait, abandon, tapis vert">⋯</button>`:m.done&&!m.bye&&!ro?`<button class="mx ed" onclick="openAct(${o.pp},${gi},${mi})" aria-label="Corriger le résultat du match M${num}" title="Corriger ce résultat">✎</button>`:''}</div>${pline(c,g,m,1,o)}${s}</div>`}
 /* arbre à 8 (phase 1, ou phase 2 à partir de 4 groupes) : participants | tour | tour | tour | classement */
@@ -1832,13 +1838,13 @@ function openAct(pp,gi,mi){ACT={pp,gi,mi};R()}
 /* fenêtre de correction d'un résultat déjà saisi */
 function corrR(c,g,m){const{pp,gi,mi}=ACT,A=rs(g,m.a),B=rs(g,m.b),eA=entOf(c,A),eB=entOf(c,B);if(!eA||!eB){ACT=null;return''}
  const na=esc(names(eA)),nb=esc(names(eB)),nd=need(pp,g),q=pp?1:0,id=`${q},${gi},${mi}`,W=m.w==A?na:nb,L0=m.w==A?nb:na,rp=chRep(S.cc),okR=rp.ok&&rp.same,blk=corrOk(c,pp,g,mi,false),
-  ty=m.tv?'tapis vert':m.ab?'abandon':m.ff?'forfait':'',cur=(k,s)=>k==(m.tv?'ff':m.ab?'ab':m.ff?'ff':'w')&&(k=='w'?(s?B:A)==m.w:(s?A:B)==m.w),
+  ty=m.tv?'tapis vert':m.ab?'abandon':m.df?'double forfait':m.ff?'forfait':'',cur=(k,s)=>k==(m.tv?'ff':m.ab?'ab':m.df?'df':m.ff?'ff':'w')&&(k=='w'?(s?B:A)==m.w:(s?A:B)==m.w),dfE=String(m.pa)==String(m.pb)||rkNx(m.pa)==rkNx(m.pb),dfI=dfE?null:rkNx(m.pa)<rkNx(m.pb)?A:B,dfB=`<button class="btn${m.df?' dark':''}" onclick="corr(${q},${gi},${mi},'df',0)"${!okR||m.df||(blk&&dfI!=null&&dfI!=m.w)?' disabled':''}>Forfait des deux${m.df?' · enregistré':dfI!=null?' ('+(dfI==A?na:nb)+' passe, meilleur rang)':' (tirage au sort, rangs égaux)'}</button>`,
   bt=(k,s,txt)=>{const same=(k=='w'?(s?B:A):(s?A:B))==m.w,dis=!okR||(!same&&blk)||cur(k,s);return`<button class="btn${cur(k,s)?' dark':''}" onclick="corr(${q},${gi},${mi},'${jsq(k)}',${s})"${dis?' disabled':''}>${txt}${cur(k,s)?' · enregistré':''}</button>`};
  return`<div class="ov" onclick="if(event.target===this){ACT=null;R()}"><div class="dlg" role="dialog" aria-modal="true" aria-labelledby="dlgt"><div><p class="eyebrow">${pp?'Phase de classement':P1N(c)} · match M${mi+1} · corriger</p><h3 id="dlgt" style="margin-top:6px">${na} <span>vs</span> ${nb}</h3></div>
- <div class="dsec"><h4>Résultat enregistré</h4><p><b>${W}</b> bat ${L0}${ty?' ('+ty+(m.ff||m.tv?' de '+L0:m.ab?' de '+L0:'')+')':''}${m.sc?' · '+esc(m.sc):''}.</p><p class="m">Si tu corriges, les rangs de tous les matchs saisis depuis sont recalculés, dans le même ordre.</p></div>
+ <div class="dsec"><h4>Résultat enregistré</h4><p>${m.df?`Double forfait : <b>${W}</b> passe, ${L0} perd (${esc(m.df)})`:`<b>${W}</b> bat ${L0}${ty?' ('+ty+(m.ff||m.tv?' de '+L0:m.ab?' de '+L0:'')+')':''}`}${m.sc?' · '+esc(m.sc):''}.</p><p class="m">Si tu corriges, les rangs de tous les matchs saisis depuis sont recalculés, dans le même ordre.</p></div>
  ${!okR?`<div class="dsec"><p class="m">Ce tableau a été commencé avec une version plus ancienne de l'appli : la correction n'est pas possible ici. Utilise « ↶ Annuler » tout de suite après une erreur.</p></div>`:blk?`<div class="dsec"><p class="m">${esc(blk)}</p></div>`:''}
  <div class="dsec"><h4>Bon résultat</h4>${nd?`<div class="row"><input id="cs${pp?'p':''}${gi}_${mi}" inputmode="decimal" value="${esc(m.ff||m.tv?'':m.sc||'')}" placeholder="${exSc()}" aria-label="Score corrigé"><button class="btn pri" onclick="corr(${id},'sc')"${okR?'':' disabled'}>Enregistrer ce score</button></div><p class="m">Le vainqueur se déduit du score (${na} en premier).</p>`:`<div class="row">${bt('w',0,na+' gagne')}${bt('w',1,nb+' gagne')}</div><div class="row">${bt('ab',0,na+' abandonne')}${bt('ab',1,nb+' abandonne')}</div>`}
-  <div class="row">${bt('ff',0,'Forfait de '+na)}${bt('ff',1,'Forfait de '+nb)}</div></div>
+  <div class="row">${bt('ff',0,'Forfait de '+na)}${bt('ff',1,'Forfait de '+nb)}</div><div class="row">${dfB}</div></div>
  <div class="dsec"><h4>Effacer le résultat</h4><p class="m">Le match redevient à jouer. Tu pourras saisir le résultat plus tard.</p><div class="row"><button class="btn" onclick="corr(${id},'del')"${!okR||blk?' disabled':''}>Effacer ce résultat</button></div></div>
  <div class="row end"><button class="btn ghost" onclick="ACT=null;R()">Fermer</button></div></div></div>`}
 function actR(){if(!ACT)return'';const c=C(),L=ACT.pp?c.p2:c.g,g=L&&L[ACT.gi],m=g&&g.m[ACT.mi];if(m&&m.done&&!m.bye)return corrR(c,g,m);if(!m||m.done){ACT=null;return''}
@@ -1846,6 +1852,7 @@ function actR(){if(!ACT)return'';const c=C(),L=ACT.pp?c.p2:c.g,g=L&&L[ACT.gi],m=
  const na=esc(names(A)),nb=esc(names(B)),id=`${ACT.gi},${ACT.mi}`,q=ACT.pp?1:0,pre=(ACT.pp?'p':'')+ACT.gi+'_'+ACT.mi;
  return`<div class="ov" onclick="if(event.target===this){ACT=null;R()}"><div class="dlg" role="dialog" aria-modal="true" aria-labelledby="dlgt"><div><p class="eyebrow">${ACT.pp?'Phase de classement':P1N(c)} · match M${ACT.mi+1}</p><h3 id="dlgt" style="margin-top:6px">${na} <span>vs</span> ${nb}</h3></div>
  <div class="dsec"><h4>Forfait</h4><p class="m">Joueur blessé ou absent sur la période : il perd${need(q,g)?' '+esc(ffS('a').replace(/, /g,' / ')):' le match'}.</p><div class="row"><button class="btn" onclick="winC(${id},0,'${jsq(ffS('b'))}',${q})">Forfait de ${na}</button><button class="btn" onclick="winC(${id},0,'${jsq(ffS('a'))}',${q})">Forfait de ${nb}</button></div></div>
+ <div class="dsec"><h4>Forfait des deux</h4><p class="m">Aucun des deux ne peut jouer sur la période : ${rkE(A)==rkE(B)?'rangs égaux ('+esc(rkE(A))+'), tirage au sort pour savoir qui passe':`${A.r<B.r?na:nb} passe, meilleur rang (${esc(A.r<B.r?rkE(A)+' contre '+rkE(B):rkE(B)+' contre '+rkE(A))})`}. Les deux sont notés forfait${need(q,g)?' ; score '+esc(ffS('a').replace(/, /g,' / ')):''}.</p><div class="row"><button class="btn" onclick="dff(${id},${q})">Forfait des deux</button></div></div>
  <div class="dsec"><h4>Abandon en cours de match</h4>${need(q,g)&&SC().mode=='sets'?`<input id="a${pre}" inputmode="decimal" placeholder="Score à l'abandon, ex : ${exAb()} (${na} en premier)">`:'<p class="m">Le joueur reste dans le challenge et peut rejouer ensuite.</p>'}<div class="row"><button class="btn" onclick="abd(${id},0,${q})">${na} abandonne</button><button class="btn" onclick="abd(${id},1,${q})">${nb} abandonne</button></div></div>
  <div class="dsec"><h4>Tapis vert (match non joué)</h4><p class="m">Créneaux proposés par chacun. Départage : implication, assiduité, rang, tirage au sort.</p><div class="row"><label class="row">${na} <input id="tv${pre}a" type="number" min="0" value="0"></label><label class="row">${nb} <input id="tv${pre}b" type="number" min="0" value="0"></label><button class="btn pri" onclick="tv(${id},${q})">Départager</button></div></div>
  <div class="row end"><button class="btn ghost" onclick="ACT=null;R()">Fermer</button></div></div></div>`}
@@ -1884,12 +1891,12 @@ function waMsg(c,pp,gi,mi){const x=waInfo(c,pp,gi,mi);if(!x)return'';const dbl=C
   q=dbl?'la paire qui':{H:'celui qui',F:'celle qui'}[CATS[S.cc][2]]||'celui ou celle qui',gl=waG(c,pp,gi),T=x.te>x.ts?`Tours ${x.ts} à ${x.te}`:`Tour ${x.ts}`;
  const L=[`🏸 *Challenge interne · ${clubName()}*`,`*${CATS[S.cc][0]}* · ${gl?gl+' · ':''}${T}`,'',
   `*${rk(ea)} ${names(ea)}*`,'🆚',`*${rk(eb)} ${names(eb)}*`,''];
- if(x.b)L.push(late?`⚠️ *Date limite dépassée* (${fr(x.b)}) : à jouer au plus vite.`:`📅 À jouer ${x.a?'du '+fr(x.a)+' au':'jusqu\'au'} *${fr(x.b)}* (date limite)`);
+ if(x.b)L.push(late?`⚠️ *Date limite dépassée* (${fr(x.b)}) : à jouer au plus vite.`:x.a&&iso(new Date())<x.a?`📅 Tour pas encore commencé : à jouer à partir du *${fr(x.a)}* et jusqu'au *${fr(x.b)}* (date limite)`:`📅 À jouer ${x.a?'du '+fr(x.a)+' au':'jusqu\'au'} *${fr(x.b)}* (date limite)`);/* v88 : tour à venir */
  L.push(`🎯 Score : ${ruleTxt()}.`+(nd?' Le score exact compte pour le classement de la poule.':''),'',
   `👉 Proposez vos créneaux ici. Une fois le match joué, ${nd?'envoyez-moi le score exact, set par set':'envoyez-moi juste le nom du vainqueur : pas besoin du score'}.`);
  if(nd)L.push('',`📊 Classement de la poule : 1. victoires · `+tbL().map((k,i)=>`${i+2}. ${TBN[k]}${k=='h2h'?' (égalité à deux)':''}`).join(' · '));
  L.push('',`⚖️ *${late?'Sinon, tapis vert':'Pas joué '+(x.b?'le '+fr(x.b):'à la date limite')+' ? Tapis vert'}*${nd?' avec le score d\'un forfait ('+ffS('a').replace(/, /g,' ')+')':''}. La victoire va, dans l'ordre, à :`,
-  `1. ${q} a proposé le plus de créneaux et a fait le plus d'efforts pour s'arranger`,`2. ${q} a joué le plus de matchs réels depuis le début (un bye compte : c'est passer au tour suivant sans jouer, faute d'adversaire ; un forfait ne compte pas)`,`3. ${q} a le meilleur rang`,`4. un tirage au sort, seulement entre deux New à égalité`);
+  `1. ${q} a proposé le plus de créneaux et a fait le plus d'efforts pour s'arranger`,`2. ${q} a joué le plus de matchs réels depuis le début (un bye compte : c'est passer au tour suivant sans jouer, faute d'adversaire ; un forfait ne compte pas)`,`3. ${q} a le meilleur rang`,`4. un tirage au sort si les rangs sont égaux (deux New, ou deux ex æquo)`);
  return L.join('\n').replace(/\n{3,}/g,'\n\n')}
 function waOpen(pp,gi,mi){WA={pp:pp?1:0,gi,mi};R()}
 function waMark(key){const c=C();(c.wa=c.wa||{})[key]=iso(new Date());save()}
@@ -1907,7 +1914,7 @@ function waR(){if(!WA)return'';const c=C(),x=waInfo(c,WA.pp,WA.gi,WA.mi);if(!x){
 function waB(c){const L=waList(c),W=c.wa||{};
  return`<p class="m">Un message par match à jouer, prêt à coller dans le groupe WhatsApp : les deux ${CATS[S.cc][1]==2?'paires':'joueurs'}, les dates, la règle du score${L.some(z=>need(z.pp,z.g))?', le classement de la poule':''} et le départage au tapis vert. Le ✓ vert indique un message déjà copié.</p>
  <div class="wal">${L.map(z=>{const x=waInfo(c,z.pp,z.gi,z.mi),s=W[x.key],gl=waG(c,z.pp,z.gi),a=`${z.pp?1:0},${z.gi},${z.mi}`;
-  return`<div class="wai"><div><span class="ey">${x.te>x.ts?'Tours '+x.ts+' à '+x.te:'Tour '+x.ts}${gl?' · '+esc(gl):''} · M${z.mi+1}${z.dl&&iso(new Date())>z.dl?' · <span class="bad">en retard</span>':''}</span>${esc(names(E(x.A)))} <span class="m">vs</span> ${esc(names(E(x.B)))}${s?` <span class="wok">✓ ${dS(s)}</span>`:''}</div><div class="wab"><button class="btn sm" onclick="waOpen(${a})">Voir</button><button class="btn sm pri" onclick="waCopy(${a})">Copier</button></div></div>`}).join('')}</div>
+  return`<div class="wai"><div><span class="ey">${x.te>x.ts?'Tours '+x.ts+' à '+x.te:'Tour '+x.ts}${x.a&&x.b&&iso(new Date())<x.a?' · du '+dS(x.a)+' au '+dS(x.b):''}${gl?' · '+esc(gl):''} · M${z.mi+1}${z.dl&&iso(new Date())>z.dl?' · <span class="bad">en retard</span>':''}</span>${esc(names(E(x.A)))} <span class="m">vs</span> ${esc(names(E(x.B)))}${s?` <span class="wok">✓ ${dS(s)}</span>`:''}</div><div class="wab"><button class="btn sm" onclick="waOpen(${a})">Voir</button><button class="btn sm pri" onclick="waCopy(${a})">Copier</button></div></div>`}).join('')}</div>
  <div class="row"><button class="btn" onclick="cpTxt(waTxt(S.cc))">Copier le récap de tous les matchs à jouer</button></div>`}
 /* ---------- Échanger deux places au Tour 1 (Dan, 09/11/2026 : « mettre Elisabeth R / Arnaud L et Séverine M / Thierry B aux extrémités du groupe ») ----------
    Deux inscrits dont le match du Tour 1 n'est pas joué, dans des groupes où le Tour 2 n'a pas commencé, échangent leur place (avec leur adversaire ou leur bye).
@@ -1929,7 +1936,7 @@ function swGo(){const c=C(),a=+(($('sw1')||{}).value||0),b=+(($('sw2')||{}).valu
 const rlDays=b=>Math.round((dd(b)-dd(tdy()))/864e5),rlD=d=>d>1?'il reste *'+d+' jours*':d==1?'il reste *1 jour*':'*dernier jour aujourd\'hui*',
  frW=s=>dd(s).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
 function rlTV(k,dbl){const q=dbl?'la paire qui':{H:'celui qui',F:'celle qui'}[CATS[k][2]]||'celui ou celle qui';
- return[`⚖️ *Rappel : un match pas joué à la date limite se décide au tapis vert.* La victoire va, dans l'ordre, à :`,`1. ${q} a proposé le plus de créneaux et a fait le plus d'efforts pour s'arranger`,`2. ${q} a joué le plus de matchs réels depuis le début (un bye compte, un forfait non)`,`3. ${q} a le meilleur rang`,`4. un tirage au sort, seulement entre deux New à égalité`]}
+ return[`⚖️ *Rappel : un match pas joué à la date limite se décide au tapis vert.* La victoire va, dans l'ordre, à :`,`1. ${q} a proposé le plus de créneaux et a fait le plus d'efforts pour s'arranger`,`2. ${q} a joué le plus de matchs réels depuis le début (un bye compte, un forfait non)`,`3. ${q} a le meilleur rang`,`4. un tirage au sort si les rangs sont égaux (deux New, ou deux ex æquo)`]}
 const rlPoule=c=>(c.p2||[]).some(p=>p.rr)?`📊 *Classement des ${(c.p2||[]).every(p=>!p.rr||p.t3)?'triangulaires':'poules'}* : 1. victoires · `+tbL().map((k,i)=>`${i+2}. ${TBN[k]}${k=='h2h'?' (égalité à deux)':''}`).join(' · '):'';
 function rlMsg(k){const x=chSt(k),c=x.c,pe=x.pe,cur=x.cur;if(!c.g.length||c.final||cur==null||cur<0||!pe[cur])return'';const dbl=CATS[k][1]==2,p=pe[cur],T=x.T[cur]||{d:0,n:0};
  const rk=id=>{const e=entOf(c,id);return e?(rkE(e))+' '+names(e):'?'},now=x.rd.filter(z=>z.t==cur+1),late=x.rd.filter(z=>z.t<cur+1),gl=z=>{const o=S.cc;S.cc=k;try{return waG(c,z.pp,z.gi)}finally{S.cc=o}};
@@ -1968,7 +1975,7 @@ const pdIn=(c,z,id)=>`<label class="row m pdl">Prévu le <input type="date" id="
 function rlmMsg(c,pp,gi,mi){const x=waInfo(c,pp,gi,mi);if(!x)return'';const dbl=CATS[S.cc][1]==2,ea=E(x.A),eb=E(x.B),rk=e=>rkE(e),nd=need(pp,x.g),gl=waG(c,pp,gi),T=x.te>x.ts?`Tours ${x.ts} à ${x.te}`:`Tour ${x.ts}`,d=x.b?rlDays(x.b):null;
  const L=[`⏰ *Relance · Challenge interne · ${clubName()}*`,`*${CATS[S.cc][0]}* · ${gl?gl+' · ':''}${T}`,'',`*${rk(ea)} ${names(ea)}*`,'🆚',`*${rk(eb)} ${names(eb)}*`,''];
  const pd=(c.pd||{})[x.key];if(pd)L.push(pd>=tdy()?`🗓️ Match prévu le *${fr(pd)}* : pensez à m'envoyer le résultat.`:`🗓️ Le match était prévu le *${fr(pd)}* : s'il est joué, envoyez-moi le résultat ; sinon, donnez une nouvelle date.`);
- if(x.b)L.push(d<0?`⚠️ *Date limite dépassée* (${fr(x.b)}, il y a ${-d} jour${-d>1?'s':''}) : à jouer au plus vite, sinon tapis vert.`:`📅 Date limite : *${fr(x.b)}* → ${rlD(d)}`);
+ if(x.b)L.push(d<0?`⚠️ *Date limite dépassée* (${fr(x.b)}, il y a ${-d} jour${-d>1?'s':''}) : à jouer au plus vite, sinon tapis vert.`:x.a&&tdy()<x.a?`📅 Tour pas encore commencé : à jouer à partir du *${fr(x.a)}* et jusqu'au *${fr(x.b)}* (date limite)`:`📅 Date limite : *${fr(x.b)}* → ${rlD(d)}`);
  L.push(pd?`👉 Une fois le match joué, envoyez-moi ${nd?'le score exact, set par set':'le nom du vainqueur'}.`:`👉 Proposez vos créneaux ici. Une fois le match joué, envoyez-moi ${nd?'le score exact, set par set':'le nom du vainqueur'}.`,'',`🎯 Score : ${ruleTxt()}.`);
  if(nd)L.push(`📊 Classement de la poule : 1. victoires · `+tbL().map((k,i)=>`${i+2}. ${TBN[k]}${k=='h2h'?' (égalité à deux)':''}`).join(' · '));
  L.push('',...rlTV(S.cc,dbl).map((l,i)=>i?l:(nd?l.replace(/tapis vert\.\*/,'tapis vert*, avec le score d\'un forfait ('+ffS('a').replace(/, /g,' ')+').'):l)));
@@ -1990,7 +1997,7 @@ function rlB(c){const L=rlList(c),n=L.filter(z=>rlDue(c,z)).length,t=rlMsg(S.cc)
   pre=x=>`<pre class="wam">${esc(x).replace(/\*([^*\n]+)\*/g,'<b>$1</b>').replace(/(^|\n)_([^_\n]+)_/g,'$1<i>$2</i>')}</pre>`;
  return`<p class="m">Une relance par match encore à jouer (tour en cours et retards), à coller dans le groupe WhatsApp du match : la date limite et les jours restants, la règle du score et le départage au tapis vert. Une par semaine suffit : « à relancer » quand le dernier message du match (annonce 💬 ou relance) date de 7 jours ou plus. Les joueurs ont donné une date ? Note-la dans « Prévu le » : pas de relance d'ici là ; si la date passe sans résultat, le match revient « à relancer » pour demander le résultat.</p>
  ${L.length?`<div class="wal">${L.map(z=>{const x=waInfo(c,z.pp,z.gi,z.mi),gl=waG(c,z.pp,z.gi),l=rlLast(c,z),du=rlDue(c,z),ar=`${z.pp?1:0},${z.gi},${z.mi}`,lt=z.dl&&tdy()>z.dl;
-  return`<div class="wai"><div><span class="ey">${x.te>x.ts?'Tours '+x.ts+' à '+x.te:'Tour '+x.ts}${gl?' · '+esc(gl):''} · M${z.mi+1}${lt?' · <span class="bad">en retard</span>':''}</span>${esc(names(E(x.A)))} <span class="m">vs</span> ${esc(names(E(x.B)))} ${pdOf(c,z)?pdTag(c,z):du?'<span class="bad">à relancer</span>':`<span class="wok">✓ ${rlAgo(l)==0?'aujourd\'hui':'il y a '+rlAgo(l)+' j'}</span>`}</div><div class="wab">${pdIn(c,z,'pd'+(z.pp?'p':'')+z.gi+'_'+z.mi)}<button class="btn sm" onclick="rlmOpen(${ar})">Voir</button><button class="btn sm${du?' pri':''}" onclick="rlmCopy(${ar})">Copier</button></div></div>`}).join('')}</div>
+  return`<div class="wai"><div><span class="ey">${x.te>x.ts?'Tours '+x.ts+' à '+x.te:'Tour '+x.ts}${x.a&&x.b&&iso(new Date())<x.a?' · du '+dS(x.a)+' au '+dS(x.b):''}${gl?' · '+esc(gl):''} · M${z.mi+1}${lt?' · <span class="bad">en retard</span>':''}</span>${esc(names(E(x.A)))} <span class="m">vs</span> ${esc(names(E(x.B)))} ${pdOf(c,z)?pdTag(c,z):du?'<span class="bad">à relancer</span>':`<span class="wok">✓ ${rlAgo(l)==0?'aujourd\'hui':'il y a '+rlAgo(l)+' j'}</span>`}</div><div class="wab">${pdIn(c,z,'pd'+(z.pp?'p':'')+z.gi+'_'+z.mi)}<button class="btn sm" onclick="rlmOpen(${ar})">Voir</button><button class="btn sm${du?' pri':''}" onclick="rlmCopy(${ar})">Copier</button></div></div>`}).join('')}</div>
  ${f?`<div class="row"><button class="btn pri" onclick="rlmOpen(${f.pp?1:0},${f.gi},${f.mi})">Relancer les ${n} match${n>1?'s':''} à faire, un par un</button></div>`:'<p class="m"><span class="wok">✓ Toutes les relances de la semaine sont faites.</span></p>'}`:'<p class="m">Aucun match à jouer pour le moment dans ce tour.</p>'}
  ${t?fold('rlt','Récapitulatif du tableau en un message',ag!=null?(ag==0?'copié aujourd\'hui':'il y a '+ag+' j'):'',false,`<p class="m">Pour un groupe WhatsApp du tableau entier : le tour, les jours restants, tous les matchs à jouer et en retard.</p>${pre(t)}<div class="row"><button class="btn" onclick="rlCopy(0)">Copier le récapitulatif</button><a class="btn" href="https://wa.me/?text=${encodeURIComponent(t)}" target="_blank" rel="noopener" onclick="rlGo(0)">Ouvrir WhatsApp</a></div>`):''}
  ${a&&S.club.cats.filter(k=>rlMsg(k)).length>1?fold('rla','Récapitulatif de tous les tableaux en un message',aa!=null?(aa==0?'copié aujourd\'hui':'il y a '+aa+' j'):'',false,`<p class="m">Le point de tous les tableaux, pour un groupe commun.</p>${pre(a)}<div class="row"><button class="btn" onclick="rlCopy(1)">Copier le récapitulatif de tous les tableaux</button></div>`):''}`}
@@ -2040,7 +2047,7 @@ function dashR(){const ks=S.club.cats.filter(k=>S.ch[k]&&S.ch[k].ent.length);if(
   inv.length&&kv('Invaincus (2 matchs ou plus)',inv.slice(0,8).map(r=>`${esc(r.nm)} <span class="m">(${r.w} V)</span> ${T(r.k)}`).join(' · ')+(inv.length>8?` <span class="m">et ${inv.length-8} autres</span>`:'')),
   act2.length&&kv('Les plus actifs',act2.map(r=>`${esc(r.nm)} <span class="m">(${r.n} matchs)</span> ${T(r.k)}`).join('<br>')),
   sur&&kv('Plus gros vol de rang',`${nmE(sur.z.k,sur.z.m.w)} (#${sur.z.m.w==sur.z.A?sur.z.m.pa:sur.z.m.pb}) bat ${nmE(sur.z.k,sur.z.m.l)} (#${sur.z.m.w==sur.z.A?sur.z.m.pb:sur.z.m.pa}) ${T(sur.z.k)}`),
-  ms.length&&kv('Derniers résultats saisis',ms.slice(0,6).map(z=>{const wa=z.m.w==z.A,pw=wa?z.m.pa:z.m.pb,qw=wa?z.m.qa:z.m.qb;return`${nmE(z.k,z.m.w)} bat ${nmE(z.k,z.m.l)}${z.m.tv?' (tapis vert)':z.m.ab?' (abandon)':z.m.ff?' (forfait)':''}${pw!=qw&&typeof qw=='number'?` <span class="mv up">${pw=='New'?'New':'#'+pw} → #${qw}</span>`:''} ${T(z.k)}`}).join('<br>'))].filter(Boolean);
+  ms.length&&kv('Derniers résultats saisis',ms.slice(0,6).map(z=>{const wa=z.m.w==z.A,pw=wa?z.m.pa:z.m.pb,qw=wa?z.m.qa:z.m.qb;return`${nmE(z.k,z.m.w)} ${z.m.df?'passe face à':'bat'} ${nmE(z.k,z.m.l)}${z.m.tv?' (tapis vert)':z.m.ab?' (abandon)':z.m.df?' (double forfait)':z.m.ff?' (forfait)':''}${pw!=qw&&typeof qw=='number'?` <span class="mv up">${pw=='New'?'New':'#'+pw} → #${qw}</span>`:''} ${T(z.k)}`}).join('<br>'))].filter(Boolean);
  if(facts.length)h+=`<div class="card"><h3>Faits marquants de la saison</h3><dl class="kv">${facts.join('')}</dl></div>`;
  return fold('dash','Tableau de bord · tous les tableaux',`${done}/${tot} matchs · ${pc} %${late.length?' · '+late.length+' en retard':''}`,true&&!MOB(),h)}
 /* ---------- Onglet Challenge ---------- */
@@ -2153,7 +2160,7 @@ function pfCh(id){const B=[];
  if(!B.length)return'';
  const blk=(b,i)=>{const pts=[{r:b.r.r0,l:'Départ : '+(b.r.new?'New, placé #':'#')+b.r.r0}];let prev=b.r.r0;
   const ord=b.ms.filter(m=>m.ty!='bye'),bys=b.ms.filter(m=>m.ty=='bye'),L2=[],used=new Set;ord.forEach(m=>{bys.filter(y=>!used.has(y)&&y.t<=m.t).forEach(y=>{used.add(y);L2.push(y)});L2.push(m)});bys.filter(y=>!used.has(y)).forEach(y=>L2.push(y));
-  const rows=L2.map(m=>{if(m.ty=='bye')return`<tr><td>T${m.t}</td><td class="m">—</td><td><span class="m">Qualifié d'office (bye)</span></td><td></td><td></td></tr>`;const me=same(m.a,b.r.ids)?'a':'b',op=me=='a'?m.b:m.a,won=m.w==me,p0=me=='a'?m.pa:m.pb,q0=me=='a'?m.qa:m.qb,opn=op.map(sn).join(' / '),ty={tv:'tapis vert',ab:'abandon',ff:'forfait'}[m.ty]||'';
+  const rows=L2.map(m=>{if(m.ty=='bye')return`<tr><td>T${m.t}</td><td class="m">—</td><td><span class="m">Qualifié d'office (bye)</span></td><td></td><td></td></tr>`;const me=same(m.a,b.r.ids)?'a':'b',op=me=='a'?m.b:m.a,won=m.w==me,p0=me=='a'?m.pa:m.pb,q0=me=='a'?m.qa:m.qb,opn=op.map(sn).join(' / '),ty={tv:'tapis vert',ab:'abandon',ff:'forfait',df:'double forfait'}[m.ty]||'';
    if(typeof p0=='number'&&p0!=prev)pts.push({r:p0,l:'Glissement avant le tour '+m.t+' : #'+p0});if(typeof q0=='number'){pts.push({r:q0,k:won?'w':'l',l:'Tour '+m.t+' : '+(won?'victoire':'défaite')+' contre '+opn+' → #'+q0});prev=q0}
    return`<tr><td>T${m.t}</td><td>${esc(opn)}</td><td><span class="${won?'mv up':'mv dn'}">${won?'Victoire':'Défaite'}</span>${ty?' <span class="m">('+ty+')</span>':''}</td><td>${esc(m.sc||'')}</td><td>${rkTx(p0)} → ${rkTx(q0)}</td></tr>`}).join('');
   const fin=b.cur!=null?b.cur:b.r.r;if(fin!=prev)pts.push({r:fin,l:(b.cur!=null?'Aujourd\'hui':'Classement final')+' : #'+fin});
@@ -2231,7 +2238,7 @@ const CBD=[
  {id:'splash',so:1,H:CBH1,ic:'🙃',t:'L\'arroseur arrosé',ty:'neg',vs:'revanche de',d:'Perdre contre un adversaire que tu avais battu plus tôt dans le tableau',v:x=>{const W={};let n=0;x.P.forEach(m=>{if(m.won)W[m.op]=(W[m.op]||0)+1;else if(W[m.op]){W[m.op]--;n++;x.hit(m.op)}});return n}},/* v84 : miroir de Revanche */
  {id:'souffle',so:1,H:CBH1,ic:'🎈',t:'Le soufflé retombé',ty:'neg',d:'Perdre en 3 sets après avoir gagné le 1er (score saisi)',v:x=>x.cnt(m=>cbSet(m)==3&&!m.won&&m.st[0][0]>m.st[0][1])},/* miroir de Remontada */
  {id:'crepe',so:1,H:CBH1,ic:'🫓',t:'La crêpe',ty:'neg',vs:'aplati par',d:'Perdre 2 sets à 0 en marquant au plus la moitié des points de l\'adversaire (score saisi)',v:x=>x.cnt(m=>cbSet(m)==2&&!m.won&&m.st.every(t=>t[0]<t[1])&&2*cbPts(m.st,0)<=cbPts(m.st,1))},/* miroir de Rouleau compresseur */
- {id:'ghost',so:1,H:CBH1,ic:'👻',t:'Fantôme',ty:'neg',d:'Déclarer forfait',v:x=>x.cntM(m=>m.ty=='ff'&&!m.won)},
+ {id:'ghost',so:1,H:CBH1,ic:'👻',t:'Fantôme',ty:'neg',d:'Déclarer forfait (un double forfait compte pour les deux)',v:x=>x.cntM(m=>(m.ty=='ff'&&!m.won)||m.ty=='df')},
  {id:'cold',ic:'🧊',t:'Série noire',ty:'neg',d:'Perdre 3 matchs de suite (chaque série de 3 compte)',v:x=>x.runs(m=>!m.won,3)},
  {id:'slide',ic:'📉',t:'Toboggan',ty:'neg',u:'places',S:[5,8,12,16],H:[5,15,30,50],d:'Perdre au moins 5 places depuis ton rang de départ de la saison',v:x=>x.r.r-x.r.r0>=5?x.r.r-x.r.r0:0},
  {id:'banana',ic:'🍌',t:'Peau de banane',ty:'neg',vs:'battu par',d:'Être battu par un adversaire classé au moins 5 places derrière toi',v:x=>x.cnt(m=>!m.won&&cbN(m.p0)&&cbN(m.po)&&m.po-m.p0>=5)},
@@ -2404,7 +2411,7 @@ function hlpData(){const db=S.club.cats.some(k=>CATS[k][1]==2),L=[],A=(m,q,k,a,o
   A('c','Saisir un résultat','saisir resultat score gagnant vainqueur match cocher valider gagne perdu','Coche le vainqueur du match dans le tableau. Dans les poules de la phase de classement, tape le score puis « Valider ».');
   A('c','Comment sont classés les [New] (ex æquo)','new nouveau nouveaux ex aequo egalite egal egaux rang classement perdu depart tirage','Tant qu\'un joueur sans rang historique n\'a pas gagné de match, il est ex æquo avec les autres (« =10 » : 10e ex æquo), à la suite des joueurs déjà départagés. Son premier match gagné lui donne un rang : celui du perdant s\'il était mieux classé, sinon la première place devant les ex æquo. À la fin de la phase de positionnement, les ex æquo sont départagés par leur place dans leur groupe, puis par le tirage au sort.');
   A('c','Corriger un résultat déjà saisi','corriger resultat erreur modifier score vainqueur effacer trompe','✎ sur le match joué : changer le vainqueur, passer en forfait ou abandon, ou effacer le résultat. Les rangs sont recalculés. Si un match qui en dépend est déjà joué, corrige ou efface d\'abord celui-là.');
-  A('c','Forfait, abandon ou match pas joué (tapis vert)','forfait abandon absent absence blesse blessure tapis vert pas joue non joue','Bouton ⋯ du match : « Forfait de… », « … abandonne », ou Tapis vert (départage d\'après les créneaux proposés par chacun).');
+  A('c','Forfait, abandon ou match pas joué (tapis vert)','forfait abandon absent absence blesse blessure tapis vert pas joue non joue double forfait deux absents','Bouton ⋯ du match : « Forfait de… », « Forfait des deux » (le meilleur rang passe), « … abandonne », ou Tapis vert (départage d\'après les créneaux proposés par chacun).');
   A('c','Quelqu\'un arrive après le tirage (retardataire)','retardataire retard arrive tard nouveau nouvelle inscription apres tirage ajouter rajouter',`Pendant le Tour 1 : ${T} › Retardataire. Il prend une place libre (qualifié d'office). Plus de place et plusieurs arrivants : « Nouveau groupe ».`);
   A('c','Quelqu\'un se désiste','desiste desistement retirer quitter abandonne arrete arreter supprimer enlever inscription partir',`Avant le 1er match du tableau : ✕ à côté de son nom dans ${hlg('Inscriptions','c','ins')}, le tirage est gardé. Après : remplace-le pendant le Tour 1 (${T}), ou mets ses matchs en forfait (⋯ › Forfait). Pour le retirer complètement du tableau après des matchs joués : demande à Dan.`,2);
   A('c','Remplacer un joueur ou un partenaire','remplacer remplacant remplacement partenaire changer blesse binome',`Pendant le Tour 1 : ${T} › Remplacement : choisis le joueur à remplacer et le remplaçant. Après le Tour 1, plus de remplacement (règlement) : ses matchs sont perdus par forfait.`);
@@ -2622,16 +2629,18 @@ function rgAdh(){const ff=esc(ffS('a').replace(/, /g,' ; ')),sets=SC().mode=='se
  +rgS('6. Forfaits, abandons et matchs non joués',`<p>Un match perdu par forfait, abandon ou tapis vert est une défaite comme une autre : le vol de rang s'applique, et le joueur reste dans le challenge pour ses matchs suivants.</p>
   <div class="tbl"><table><tr><th>Situation</th><th>Quand</th><th>Résultat enregistré</th><th>Compte comme match joué</th></tr>
   <tr><td><b>Forfait</b></td><td>Tu ne peux pas jouer pendant la période du tour (blessure, absence)</td><td>Défaite ${ff}</td><td>Non</td></tr>
+  <tr><td><b>Double forfait</b></td><td>Aucun des deux ne peut jouer pendant la période du tour</td><td>Le mieux classé passe (tirage au sort si les rangs sont égaux), ${ff} ; les deux sont notés forfait</td><td>Non</td></tr>
   <tr><td><b>Abandon</b></td><td>Le match a commencé et un joueur arrête</td><td>Défaite ; en poule, score au moment de l'arrêt complété pour le vainqueur</td><td>Oui</td></tr>
   <tr><td><b>Tapis vert</b></td><td>Le match ne s'est pas joué à la fin du tour</td><td>Vainqueur désigné par les critères ci-dessous, ${ff}</td><td>Non</td></tr>
   <tr><td><b>Bye</b></td><td>Pas d'adversaire : tu passes au tour suivant sans jouer</td><td>Qualifié d'office</td><td>Oui</td></tr></table></div>
   <p><b>Le forfait</b> : préviens ton adversaire et le gestionnaire dès que tu sais que tu ne pourras pas jouer.</p>
+  <p><b>Le double forfait</b> : si aucun des deux ne peut jouer, le match n'est pas reporté. Le joueur au meilleur rang passe au tour suivant, sans vol de rang, et l'autre prend la défaite. Si les rangs sont égaux (deux [New], ou deux ex æquo pendant la phase de positionnement), un tirage au sort décide. Les deux joueurs sont notés forfait.</p>
   ${sets?`<p><b>L'abandon en poule</b> : on note les sets terminés et le score du set en cours au moment de l'arrêt. Le vainqueur prend les points qui lui manquent pour finir ce set, puis gagne les sets restants ${esc(SC().pts)}-0.</p>`:''}
   <p><b>Le tapis vert</b> : le gestionnaire règle le match le jour de la date limite, pour que le tour suivant ne soit jamais bloqué. La victoire va, dans l'ordre, à :</p><ol>
   <li>${q} a proposé le plus de créneaux et a fait le plus d'efforts pour s'arranger ;</li>
   <li>${q} a joué le plus de matchs réels depuis le début (un bye compte : c'est passer au tour suivant sans jouer, faute d'adversaire ; un forfait ne compte pas) ;</li>
   <li>${q} a le meilleur rang ;</li>
-  <li>un tirage au sort, seulement entre deux [New] à égalité sur les deux premiers critères.</li></ol>`)
+  <li>un tirage au sort si les rangs sont égaux (deux [New], ou deux ex æquo pendant la phase de positionnement), à égalité sur les deux premiers critères.</li></ol>`)
  +rgS('7. Retardataires, désistements et remplacements',`<p>Une arrivée, un désistement ou un remplacement ne se traite que jusqu'à la date de fin du Tour 1 ; ensuite, un joueur qui ne peut plus jouer perd ses matchs par forfait.</p>
   <h4>Retardataire (inscription après la formation des groupes)</h4><ul>
   <li>Il entre s'il reste une place vacante (bye) dans un groupe dont le Tour 2 n'a pas commencé.</li>
@@ -2685,6 +2694,7 @@ function rgGes(){const fl=esc((PRESET&&PRESET.file)||'club-manager.html'),db=S.c
   <p>La carte <b>Classement actuel</b> donne le classement officiel à tout moment.</p>`)
  +rgS('4. Traiter les cas particuliers',`<div class="tbl"><table><tr><th>Cas</th><th>Où cliquer</th><th>Ce que tu saisis</th></tr>
   <tr><td><b>Forfait</b></td><td>⋯ du match › Forfait de …</td><td>Rien : défaite ${esc(ffS('a'))} enregistrée</td></tr>
+  <tr><td><b>Forfait des deux</b></td><td>⋯ du match › Forfait des deux</td><td>Rien : le meilleur rang passe (tirage au sort si les rangs sont égaux), les deux sont notés forfait</td></tr>
   <tr><td><b>Abandon</b></td><td>⋯ du match › … abandonne</td><td>En poule : le score à l'arrêt, joueur du haut en premier, le dernier set étant celui en cours (ex. ${esc(exAb())})</td></tr>
   <tr><td><b>Tapis vert</b></td><td>⋯ du match › Départager</td><td>Le nombre de créneaux proposés par chacun</td></tr>
   <tr><td><b>Retardataire</b></td><td>Tour 1 : retardataire et remplacement</td><td>Qui arrive, puis touche son adversaire sur le tableau (sinon placement automatique), puis Valide</td></tr>
